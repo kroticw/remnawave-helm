@@ -1,0 +1,114 @@
+replicaCount: 1
+
+image:
+  repository: remnawave/backend
+  tag: "2.7.4"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext: {}
+
+# Name of an existing Secret containing all required environment variables.
+# The secret must contain the following keys:
+#   Required:
+#     DATABASE_URL          - PostgreSQL connection string
+#     REDIS_HOST            - Redis/KeyDB hostname
+#     REDIS_PORT            - Redis/KeyDB port (default: 6379)
+#     REDIS_DB              - Redis/KeyDB database number (default: 0)
+#     JWT_AUTH_SECRET       - Auth JWT secret (min 64 chars, use: openssl rand -hex 64)
+#     JWT_API_TOKENS_SECRET - API tokens JWT secret (min 64 chars)
+#     FRONT_END_DOMAIN      - Panel public URL (e.g. https://panel.example.com)
+#     SUB_PUBLIC_DOMAIN     - Subscription public URL (e.g. https://sub.example.com/api/sub)
+#     METRICS_USER          - Prometheus metrics basic auth username
+#     METRICS_PASS          - Prometheus metrics basic auth password
+#   Optional:
+#     APP_PORT              - Panel port (default: 3000)
+#     METRICS_PORT          - Metrics port (default: 3001)
+#     API_INSTANCES         - Number of API workers (default: 1)
+#     REDIS_PASSWORD        - Redis password
+#     REDIS_SOCKET          - Redis Unix socket path
+#     JWT_AUTH_LIFETIME     - Auth token lifetime in hours (default: 12)
+#     PANEL_DOMAIN          - Panel domain for link generation
+#     IS_TELEGRAM_NOTIFICATIONS_ENABLED - Enable Telegram notifications (default: false)
+#     TELEGRAM_BOT_TOKEN    - Telegram bot token
+#     WEBHOOK_ENABLED       - Enable webhooks (default: false)
+#     WEBHOOK_URL           - Webhook endpoint URL
+#     WEBHOOK_SECRET_HEADER - Webhook signature key (min 32 chars)
+#     IS_DOCS_ENABLED       - Enable Swagger/Scalar docs (default: false)
+#     IS_HTTP_LOGGING_ENABLED - Enable HTTP request logging (default: false)
+#     ENABLE_DEBUG_LOGS     - Enable debug logging (default: false)
+existingSecret: ""
+
+service:
+  type: ClusterIP
+  port: 3000
+  metricsPort: 3001
+
+# Classic Kubernetes Ingress
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: ""
+  tls: true
+  # Leave empty to auto-generate from host: "<host>-tls"
+  tlsSecretName: ""
+
+# Gateway API HTTPRoute (mutually exclusive with ingress)
+httproute:
+  enabled: false
+  parentRefs:
+    - name: services
+      namespace: envoy-gateway-system
+  hostname: ""
+
+livenessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  failureThreshold: 3
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Prometheus ServiceMonitor (requires prometheus-operator or victoria-metrics-operator)
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  labels: {}

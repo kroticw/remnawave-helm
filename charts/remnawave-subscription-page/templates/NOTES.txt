@@ -1,0 +1,11 @@
+Remnawave Subscription Page has been deployed!
+
+{{- if .Values.ingress.enabled }}
+Subscription URL: https://{{ .Values.ingress.host }}
+{{- else if .Values.httproute.enabled }}
+Subscription URL: https://{{ .Values.httproute.hostname }}
+{{- else }}
+Subscription page is not exposed externally. Enable ingress or httproute to access it.
+{{- end }}
+
+Make sure the Remnawave Panel has SUB_PUBLIC_DOMAIN set to point to this service.

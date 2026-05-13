@@ -1,0 +1,79 @@
+{{- if not .Values.existingSecret }}
+{{- fail "existingSecret is required. Create a Kubernetes Secret with all required environment variables and set existingSecret to its name." }}
+{{- end }}
+{{- if and .Values.ingress.enabled .Values.httproute.enabled }}
+{{- fail "ingress.enabled and httproute.enabled cannot both be true. Choose one ingress method." }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "remnawave-subscription-page.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "remnawave-subscription-page.labels" . | nindent 4 }}
+  {{- with .Values.podAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "remnawave-subscription-page.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "remnawave-subscription-page.selectorLabels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "remnawave-subscription-page.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: subscription-page
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ .Values.existingSecret }}
+          ports:
+            - name: http
+              containerPort: 3010
+              protocol: TCP
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

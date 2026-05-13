@@ -1,0 +1,17 @@
+apiVersion: v2
+name: remnawave-panel
+description: Helm chart for Remnawave VPN panel (backend + frontend)
+type: application
+version: 0.1.0
+appVersion: "2.7.4"
+keywords:
+  - remnawave
+  - vpn
+  - xray
+  - panel
+home: https://docs.rw
+sources:
+  - https://github.com/remnawave/backend
+maintainers:
+  - name: Davydov Denis
+    email: krotenot015@gmail.com
