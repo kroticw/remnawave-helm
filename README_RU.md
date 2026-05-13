@@ -39,7 +39,9 @@ kubectl create secret generic panel-secret \
   --from-literal=JWT_AUTH_SECRET="$(openssl rand -hex 64)" \
   --from-literal=JWT_API_TOKENS_SECRET="$(openssl rand -hex 64)" \
   --from-literal=FRONT_END_DOMAIN='https://panel.example.com' \
-  --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub'
+  --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub' \
+  --from-literal=METRICS_USER='metrics' \
+  --from-literal=METRICS_PASS="$(openssl rand -hex 16)"
 ```
 
 Полный список поддерживаемых переменных — в разделе [Ключи секрета](#ключи-секрета-remnawave-panel) ниже.
@@ -186,8 +188,8 @@ helm install remnawave-panel charts/remnawave-panel \
 | `REDIS_SOCKET`                      | Нет        | Unix-сокет Redis (альтернатива host/port)                            |
 | `JWT_AUTH_LIFETIME`                 | Нет        | Время жизни auth-токена в часах (по умолчанию: `12`)                 |
 | `PANEL_DOMAIN`                      | Нет        | Домен панели для генерации ссылок                                    |
-| `METRICS_USER`                      | Нет        | Логин для basic auth на эндпоинте метрик                             |
-| `METRICS_PASS`                      | Нет        | Пароль для basic auth на эндпоинте метрик                            |
+| `METRICS_USER`                      | Да         | Логин для basic auth на эндпоинте метрик                             |
+| `METRICS_PASS`                      | Да         | Пароль для basic auth на эндпоинте метрик                            |
 | `IS_TELEGRAM_NOTIFICATIONS_ENABLED` | Нет        | Включить Telegram-уведомления (по умолчанию: `false`)                |
 | `TELEGRAM_BOT_TOKEN`                | Нет        | Токен Telegram-бота                                                  |
 | `WEBHOOK_ENABLED`                   | Нет        | Включить webhook-уведомления (по умолчанию: `false`)                 |

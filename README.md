@@ -39,7 +39,9 @@ kubectl create secret generic panel-secret \
   --from-literal=JWT_AUTH_SECRET="$(openssl rand -hex 64)" \
   --from-literal=JWT_API_TOKENS_SECRET="$(openssl rand -hex 64)" \
   --from-literal=FRONT_END_DOMAIN='https://panel.example.com' \
-  --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub'
+  --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub' \
+  --from-literal=METRICS_USER='metrics' \
+  --from-literal=METRICS_PASS="$(openssl rand -hex 16)"
 ```
 
 See [full list of supported variables](#remnawave-panel-secret-keys) below.
@@ -186,8 +188,8 @@ helm install remnawave-panel charts/remnawave-panel \
 | `REDIS_SOCKET`                      | No       | Redis Unix socket path (alternative to host/port)                   |
 | `JWT_AUTH_LIFETIME`                 | No       | Auth token lifetime in hours (default: `12`)                        |
 | `PANEL_DOMAIN`                      | No       | Panel domain for link generation                                    |
-| `METRICS_USER`                      | No       | Prometheus metrics basic auth username                              |
-| `METRICS_PASS`                      | No       | Prometheus metrics basic auth password                              |
+| `METRICS_USER`                      | Yes      | Prometheus metrics basic auth username                              |
+| `METRICS_PASS`                      | Yes      | Prometheus metrics basic auth password                              |
 | `IS_TELEGRAM_NOTIFICATIONS_ENABLED` | No       | Enable Telegram notifications (default: `false`)                    |
 | `TELEGRAM_BOT_TOKEN`                | No       | Telegram bot token                                                  |
 | `WEBHOOK_ENABLED`                   | No       | Enable webhook notifications (default: `false`)                     |
