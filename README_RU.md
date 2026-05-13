@@ -213,7 +213,23 @@ helm install remnawave-panel charts/remnawave-panel \
 
 ## Использование с FluxCD и SOPS
 
-Пример HelmRelease для панели с SOPS-зашифрованным секретом:
+Сначала добавьте `HelmRepository`, указывающий на OCI-реестр. Это делается один раз на кластер:
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: HelmRepository
+metadata:
+  name: remnawave-helm
+  namespace: flux-system
+spec:
+  interval: 1h
+  type: oci
+  url: oci://ghcr.io/kroticw/remnawave-helm
+```
+
+Затем создайте `HelmRelease` для каждого компонента. Секреты управляются внешне через SOPS — чарт ссылается на них только по имени.
+
+**remnawave-panel** (пример для staging с Gateway API):
 
 ```yaml
 apiVersion: helm.toolkit.fluxcd.io/v2
@@ -228,8 +244,9 @@ spec:
       chart: remnawave-panel
       version: "0.1.0"
       sourceRef:
-        kind: GitRepository
+        kind: HelmRepository
         name: remnawave-helm
+        namespace: flux-system
   values:
     existingSecret: panel-secret
     httproute:
@@ -244,6 +261,42 @@ spec:
       limits:
         cpu: 1000m
         memory: 512Mi
+```
+
+**remnawave-subscription-page** (пример для production с Ingress):
+
+```yaml
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: remnawave-subscription-page
+  namespace: remnawave
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: remnawave-subscription-page
+      version: "0.1.0"
+      sourceRef:
+        kind: HelmRepository
+        name: remnawave-helm
+        namespace: flux-system
+  values:
+    existingSecret: sub-page-secret
+    ingress:
+      enabled: true
+      host: sub.example.com
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+    nodeSelector:
+      kubernetes.io/os: linux
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
 ```
 
 ## Лицензия
