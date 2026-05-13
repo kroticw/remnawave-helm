@@ -6,10 +6,10 @@ Helm-чарты для развёртывания компонентов VPN-п�
 
 ## Чарты
 
-| Чарт | Описание | Образ по умолчанию |
-| --- | --- | --- |
-| [`remnawave-panel`](./charts/remnawave-panel) | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:2` |
-| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок | `remnawave/subscription-page:latest` |
+| Чарт                                                                  | Описание                           | Образ по умолчанию                   |
+|-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:2`                |
+| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок             | `remnawave/subscription-page:latest` |
 
 Чарты разработаны для независимого развёртывания. Типичная схема — панель в одном кластере/неймспейсе, страница подписок в другом; страница подписок обращается к панели по HTTPS.
 
@@ -113,103 +113,103 @@ helm install remnawave-panel charts/remnawave-panel \
 
 ### remnawave-panel
 
-| Параметр | Описание | По умолчанию |
-| --- | --- | --- |
-| `replicaCount` | Количество реплик | `1` |
-| `image.repository` | Репозиторий образа | `remnawave/backend` |
-| `image.tag` | Тег образа | `2` |
-| `image.pullPolicy` | Политика загрузки образа | `Always` |
-| `existingSecret` | **Обязателен.** Имя существующего Secret с env-переменными | `""` |
-| `service.port` | HTTP-порт панели | `3000` |
-| `service.metricsPort` | Порт метрик Prometheus | `3001` |
-| `ingress.enabled` | Включить Ingress | `false` |
-| `ingress.className` | Ingress class | `nginx` |
-| `ingress.annotations` | Аннотации Ingress | `{}` |
-| `ingress.host` | Имя хоста | `""` |
-| `ingress.tls` | Включить TLS | `true` |
-| `ingress.tlsSecretName` | Имя TLS-секрета (генерируется из host, если не задано) | `""` |
-| `httproute.enabled` | Включить Gateway API HTTPRoute | `false` |
-| `httproute.parentRefs` | Gateway parentRefs | см. values.yaml |
-| `httproute.hostname` | Имя хоста для HTTPRoute | `""` |
-| `serviceMonitor.enabled` | Включить ServiceMonitor для сбора метрик | `false` |
-| `serviceMonitor.interval` | Интервал сбора метрик | `30s` |
-| `serviceMonitor.labels` | Дополнительные метки ServiceMonitor | `{}` |
-| `resources` | Запросы и лимиты CPU/памяти | см. values.yaml |
-| `nodeSelector` | Node selector | `{}` |
-| `tolerations` | Toleration'ы | `[]` |
-| `affinity` | Правила affinity | `{}` |
+| Параметр                  | Описание                                                   | По умолчанию        |
+|---------------------------|------------------------------------------------------------|---------------------|
+| `replicaCount`            | Количество реплик                                          | `1`                 |
+| `image.repository`        | Репозиторий образа                                         | `remnawave/backend` |
+| `image.tag`               | Тег образа                                                 | `2`                 |
+| `image.pullPolicy`        | Политика загрузки образа                                   | `Always`            |
+| `existingSecret`          | **Обязателен.** Имя существующего Secret с env-переменными | `""`                |
+| `service.port`            | HTTP-порт панели                                           | `3000`              |
+| `service.metricsPort`     | Порт метрик Prometheus                                     | `3001`              |
+| `ingress.enabled`         | Включить Ingress                                           | `false`             |
+| `ingress.className`       | Ingress class                                              | `nginx`             |
+| `ingress.annotations`     | Аннотации Ingress                                          | `{}`                |
+| `ingress.host`            | Имя хоста                                                  | `""`                |
+| `ingress.tls`             | Включить TLS                                               | `true`              |
+| `ingress.tlsSecretName`   | Имя TLS-секрета (генерируется из host, если не задано)     | `""`                |
+| `httproute.enabled`       | Включить Gateway API HTTPRoute                             | `false`             |
+| `httproute.parentRefs`    | Gateway parentRefs                                         | см. values.yaml     |
+| `httproute.hostname`      | Имя хоста для HTTPRoute                                    | `""`                |
+| `serviceMonitor.enabled`  | Включить ServiceMonitor для сбора метрик                   | `false`             |
+| `serviceMonitor.interval` | Интервал сбора метрик                                      | `30s`               |
+| `serviceMonitor.labels`   | Дополнительные метки ServiceMonitor                        | `{}`                |
+| `resources`               | Запросы и лимиты CPU/памяти                                | см. values.yaml     |
+| `nodeSelector`            | Node selector                                              | `{}`                |
+| `tolerations`             | Toleration'ы                                               | `[]`                |
+| `affinity`                | Правила affinity                                           | `{}`                |
 
 > `ingress.enabled` и `httproute.enabled` взаимоисключающие. Одновременное включение обоих приведёт к ошибке рендеринга.
 
 ### remnawave-subscription-page
 
-| Параметр | Описание | По умолчанию |
-| --- | --- | --- |
-| `replicaCount` | Количество реплик | `1` |
-| `image.repository` | Репозиторий образа | `remnawave/subscription-page` |
-| `image.tag` | Тег образа | `latest` |
-| `image.pullPolicy` | Политика загрузки образа | `IfNotPresent` |
-| `existingSecret` | **Обязателен.** Имя существующего Secret с env-переменными | `""` |
-| `service.port` | HTTP-порт | `3010` |
-| `ingress.enabled` | Включить Ingress | `false` |
-| `ingress.className` | Ingress class | `nginx` |
-| `ingress.annotations` | Аннотации Ingress | `{}` |
-| `ingress.host` | Имя хоста | `""` |
-| `ingress.tls` | Включить TLS | `true` |
-| `ingress.tlsSecretName` | Имя TLS-секрета (генерируется из host, если не задано) | `""` |
-| `httproute.enabled` | Включить Gateway API HTTPRoute | `false` |
-| `httproute.parentRefs` | Gateway parentRefs | см. values.yaml |
-| `httproute.hostname` | Имя хоста для HTTPRoute | `""` |
-| `resources` | Запросы и лимиты CPU/памяти | см. values.yaml |
-| `nodeSelector` | Node selector | `{}` |
-| `tolerations` | Toleration'ы | `[]` |
-| `affinity` | Правила affinity | `{}` |
+| Параметр                | Описание                                                   | По умолчанию                  |
+|-------------------------|------------------------------------------------------------|-------------------------------|
+| `replicaCount`          | Количество реплик                                          | `1`                           |
+| `image.repository`      | Репозиторий образа                                         | `remnawave/subscription-page` |
+| `image.tag`             | Тег образа                                                 | `latest`                      |
+| `image.pullPolicy`      | Политика загрузки образа                                   | `IfNotPresent`                |
+| `existingSecret`        | **Обязателен.** Имя существующего Secret с env-переменными | `""`                          |
+| `service.port`          | HTTP-порт                                                  | `3010`                        |
+| `ingress.enabled`       | Включить Ingress                                           | `false`                       |
+| `ingress.className`     | Ingress class                                              | `nginx`                       |
+| `ingress.annotations`   | Аннотации Ingress                                          | `{}`                          |
+| `ingress.host`          | Имя хоста                                                  | `""`                          |
+| `ingress.tls`           | Включить TLS                                               | `true`                        |
+| `ingress.tlsSecretName` | Имя TLS-секрета (генерируется из host, если не задано)     | `""`                          |
+| `httproute.enabled`     | Включить Gateway API HTTPRoute                             | `false`                       |
+| `httproute.parentRefs`  | Gateway parentRefs                                         | см. values.yaml               |
+| `httproute.hostname`    | Имя хоста для HTTPRoute                                    | `""`                          |
+| `resources`             | Запросы и лимиты CPU/памяти                                | см. values.yaml               |
+| `nodeSelector`          | Node selector                                              | `{}`                          |
+| `tolerations`           | Toleration'ы                                               | `[]`                          |
+| `affinity`              | Правила affinity                                           | `{}`                          |
 
 ## Справочник по ключам секрета
 
 ### Ключи секрета remnawave-panel
 
-| Ключ | Обязателен | Описание |
-| --- | --- | --- |
-| `DATABASE_URL` | Да | Строка подключения PostgreSQL: `postgresql://user:pass@host:5432/db` |
-| `REDIS_HOST` | Да | Хост Redis/KeyDB |
-| `REDIS_PORT` | Да | Порт Redis/KeyDB (по умолчанию: `6379`) |
-| `REDIS_DB` | Да | Номер базы данных Redis (по умолчанию: `0`) |
-| `JWT_AUTH_SECRET` | Да | Секрет для Auth JWT, минимум 64 символа (`openssl rand -hex 64`) |
-| `JWT_API_TOKENS_SECRET` | Да | Секрет для API-токенов JWT, минимум 64 символа |
-| `FRONT_END_DOMAIN` | Да | Публичный URL панели для CORS (например `https://panel.example.com`) |
-| `SUB_PUBLIC_DOMAIN` | Да | Публичный URL подписок (например `https://sub.example.com/api/sub`) |
-| `APP_PORT` | Нет | Порт панели (по умолчанию: `3000`) |
-| `METRICS_PORT` | Нет | Порт метрик (по умолчанию: `3001`) |
-| `API_INSTANCES` | Нет | Количество API-воркеров (по умолчанию: `1`) |
-| `REDIS_PASSWORD` | Нет | Пароль Redis |
-| `REDIS_SOCKET` | Нет | Unix-сокет Redis (альтернатива host/port) |
-| `JWT_AUTH_LIFETIME` | Нет | Время жизни auth-токена в часах (по умолчанию: `12`) |
-| `PANEL_DOMAIN` | Нет | Домен панели для генерации ссылок |
-| `METRICS_USER` | Нет | Логин для basic auth на эндпоинте метрик |
-| `METRICS_PASS` | Нет | Пароль для basic auth на эндпоинте метрик |
-| `IS_TELEGRAM_NOTIFICATIONS_ENABLED` | Нет | Включить Telegram-уведомления (по умолчанию: `false`) |
-| `TELEGRAM_BOT_TOKEN` | Нет | Токен Telegram-бота |
-| `WEBHOOK_ENABLED` | Нет | Включить webhook-уведомления (по умолчанию: `false`) |
-| `WEBHOOK_URL` | Нет | URL webhook-эндпоинта |
-| `WEBHOOK_SECRET_HEADER` | Нет | Ключ подписи webhook, минимум 32 символа |
-| `IS_DOCS_ENABLED` | Нет | Включить Swagger/Scalar UI (по умолчанию: `false`) |
-| `IS_HTTP_LOGGING_ENABLED` | Нет | Включить логирование HTTP-запросов (по умолчанию: `false`) |
-| `ENABLE_DEBUG_LOGS` | Нет | Включить debug-логирование (по умолчанию: `false`) |
+| Ключ                                | Обязателен | Описание                                                             |
+|-------------------------------------|------------|----------------------------------------------------------------------|
+| `DATABASE_URL`                      | Да         | Строка подключения PostgreSQL: `postgresql://user:pass@host:5432/db` |
+| `REDIS_HOST`                        | Да         | Хост Redis/KeyDB                                                     |
+| `REDIS_PORT`                        | Да         | Порт Redis/KeyDB (по умолчанию: `6379`)                              |
+| `REDIS_DB`                          | Да         | Номер базы данных Redis (по умолчанию: `0`)                          |
+| `JWT_AUTH_SECRET`                   | Да         | Секрет для Auth JWT, минимум 64 символа (`openssl rand -hex 64`)     |
+| `JWT_API_TOKENS_SECRET`             | Да         | Секрет для API-токенов JWT, минимум 64 символа                       |
+| `FRONT_END_DOMAIN`                  | Да         | Публичный URL панели для CORS (например `https://panel.example.com`) |
+| `SUB_PUBLIC_DOMAIN`                 | Да         | Публичный URL подписок (например `https://sub.example.com/api/sub`)  |
+| `APP_PORT`                          | Нет        | Порт панели (по умолчанию: `3000`)                                   |
+| `METRICS_PORT`                      | Нет        | Порт метрик (по умолчанию: `3001`)                                   |
+| `API_INSTANCES`                     | Нет        | Количество API-воркеров (по умолчанию: `1`)                          |
+| `REDIS_PASSWORD`                    | Нет        | Пароль Redis                                                         |
+| `REDIS_SOCKET`                      | Нет        | Unix-сокет Redis (альтернатива host/port)                            |
+| `JWT_AUTH_LIFETIME`                 | Нет        | Время жизни auth-токена в часах (по умолчанию: `12`)                 |
+| `PANEL_DOMAIN`                      | Нет        | Домен панели для генерации ссылок                                    |
+| `METRICS_USER`                      | Нет        | Логин для basic auth на эндпоинте метрик                             |
+| `METRICS_PASS`                      | Нет        | Пароль для basic auth на эндпоинте метрик                            |
+| `IS_TELEGRAM_NOTIFICATIONS_ENABLED` | Нет        | Включить Telegram-уведомления (по умолчанию: `false`)                |
+| `TELEGRAM_BOT_TOKEN`                | Нет        | Токен Telegram-бота                                                  |
+| `WEBHOOK_ENABLED`                   | Нет        | Включить webhook-уведомления (по умолчанию: `false`)                 |
+| `WEBHOOK_URL`                       | Нет        | URL webhook-эндпоинта                                                |
+| `WEBHOOK_SECRET_HEADER`             | Нет        | Ключ подписи webhook, минимум 32 символа                             |
+| `IS_DOCS_ENABLED`                   | Нет        | Включить Swagger/Scalar UI (по умолчанию: `false`)                   |
+| `IS_HTTP_LOGGING_ENABLED`           | Нет        | Включить логирование HTTP-запросов (по умолчанию: `false`)           |
+| `ENABLE_DEBUG_LOGS`                 | Нет        | Включить debug-логирование (по умолчанию: `false`)                   |
 
 Полный список переменных — в [документации Remnawave](https://docs.rw/docs/install/environment-variables).
 
 ### Ключи секрета remnawave-subscription-page
 
-| Ключ | Обязателен | Описание |
-| --- | --- | --- |
-| `REMNAWAVE_PANEL_URL` | Да | Полный URL панели Remnawave (например `https://panel.example.com`) |
-| `REMNAWAVE_API_TOKEN` | Да | API-токен из панели: Settings → API Tokens |
-| `APP_PORT` | Нет | Порт сервиса (по умолчанию: `3010`) |
-| `CUSTOM_SUB_PREFIX` | Нет | Кастомный корневой путь, без ведущего и завершающего слеша |
-| `MARZBAN_LEGACY_LINK_ENABLED` | Нет | Поддержка Marzban legacy-ссылок (по умолчанию: `false`) |
-| `MARZBAN_LEGACY_SECRET_KEY` | Нет | Секрет для Marzban legacy-ссылок |
-| `SUBSCRIPTION_UI_DISPLAY_RAW_KEYS` | Нет | Показывать сырые `vless://`-ссылки (по умолчанию: `false`) |
+| Ключ                               | Обязателен | Описание                                                           |
+|------------------------------------|------------|--------------------------------------------------------------------|
+| `REMNAWAVE_PANEL_URL`              | Да         | Полный URL панели Remnawave (например `https://panel.example.com`) |
+| `REMNAWAVE_API_TOKEN`              | Да         | API-токен из панели: Settings → API Tokens                         |
+| `APP_PORT`                         | Нет        | Порт сервиса (по умолчанию: `3010`)                                |
+| `CUSTOM_SUB_PREFIX`                | Нет        | Кастомный корневой путь, без ведущего и завершающего слеша         |
+| `MARZBAN_LEGACY_LINK_ENABLED`      | Нет        | Поддержка Marzban legacy-ссылок (по умолчанию: `false`)            |
+| `MARZBAN_LEGACY_SECRET_KEY`        | Нет        | Секрет для Marzban legacy-ссылок                                   |
+| `SUBSCRIPTION_UI_DISPLAY_RAW_KEYS` | Нет        | Показывать сырые `vless://`-ссылки (по умолчанию: `false`)         |
 
 ## Использование с FluxCD и SOPS
 
