@@ -1,0 +1,16 @@
+apiVersion: v2
+name: remnawave-subscription-page
+description: Helm chart for Remnawave subscription page
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - remnawave
+  - vpn
+  - subscription
+home: https://github.com/remnawave/subscription-page
+sources:
+  - https://github.com/remnawave/subscription-page
+maintainers:
+  - name: Davydov Denis
+    email: krotenot015@gmail.com

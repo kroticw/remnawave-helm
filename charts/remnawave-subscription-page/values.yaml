@@ -1,0 +1,88 @@
+replicaCount: 1
+
+image:
+  repository: remnawave/subscription-page
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext: {}
+
+# Name of an existing Secret containing all required environment variables.
+# The secret must contain the following keys:
+#   Required:
+#     REMNAWAVE_PANEL_URL   - Full URL of the Remnawave panel (e.g. https://panel.example.com)
+#     REMNAWAVE_API_TOKEN   - API token created in panel: Settings → API Tokens
+#   Optional:
+#     APP_PORT              - Service port (default: 3010)
+#     CUSTOM_SUB_PREFIX     - Custom root path (no leading/trailing slashes)
+#     MARZBAN_LEGACY_LINK_ENABLED  - Enable Marzban legacy links (default: false)
+#     MARZBAN_LEGACY_SECRET_KEY    - Secret for Marzban legacy links
+#     SUBSCRIPTION_UI_DISPLAY_RAW_KEYS - Show raw vless:// links (default: false)
+existingSecret: ""
+
+service:
+  type: ClusterIP
+  port: 3010
+
+# Classic Kubernetes Ingress
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: ""
+  tls: true
+  # Leave empty to auto-generate from host: "<host>-tls"
+  tlsSecretName: ""
+
+# Gateway API HTTPRoute (mutually exclusive with ingress)
+httproute:
+  enabled: false
+  parentRefs:
+    - name: apps
+      namespace: envoy-gateway-system
+  hostname: ""
+
+livenessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 20
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

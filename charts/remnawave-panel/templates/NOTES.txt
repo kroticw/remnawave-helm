@@ -1,0 +1,17 @@
+Remnawave Panel has been deployed!
+
+{{- if .Values.ingress.enabled }}
+Panel URL: https://{{ .Values.ingress.host }}
+{{- else if .Values.httproute.enabled }}
+Panel URL: https://{{ .Values.httproute.hostname }}
+{{- else }}
+Panel is not exposed externally. Enable ingress or httproute to access it.
+{{- end }}
+
+To get started:
+  1. Open the panel URL and log in with your initial credentials
+  2. Add nodes: Nodes → Add Node → configure NODE_PORT and secret key on each node
+  3. Create users and configure subscriptions
+
+If subscription-page is deployed separately, set REMNAWAVE_PANEL_URL to this panel's URL
+and generate an API token in: Settings → API Tokens.
