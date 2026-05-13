@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: remnawave/subscription-page
-  tag: "latest"
+  tag: "7.2.1"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []

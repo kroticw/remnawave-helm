@@ -3,7 +3,7 @@ name: remnawave-panel
 description: Helm chart for Remnawave VPN panel (backend + frontend)
 type: application
 version: 0.1.0
-appVersion: "2"
+appVersion: "2.7.4"
 keywords:
   - remnawave
   - vpn

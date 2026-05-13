@@ -2,8 +2,8 @@ replicaCount: 1
 
 image:
   repository: remnawave/backend
-  tag: "2"
-  pullPolicy: Always
+  tag: "2.7.4"
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 
