@@ -11,7 +11,7 @@ Helm charts for deploying [Remnawave](https://github.com/remnawave/backend) VPN 
 | [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:2`                |
 | [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Lightweight subscription portal    | `remnawave/subscription-page:latest` |
 
-The charts are designed to be deployed independently. A typical setup runs the panel in one cluster/namespace and the subscription page in another, with the subscription page communicating with the panel over HTTPS.
+The charts are independent and can be deployed in any combination: both in the same namespace, in different namespaces within one cluster, or in entirely separate clusters. The subscription page communicates with the panel over HTTPS using a configured API token.
 
 ## Requirements
 
