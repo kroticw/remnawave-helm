@@ -1,5 +1,7 @@
 # remnawave-helm
 
+[🇷🇺 Русская версия](./README_RU.md)
+
 Helm charts for deploying [Remnawave](https://github.com/remnawave/backend) VPN panel components in Kubernetes.
 
 ## Charts
@@ -246,4 +248,4 @@ spec:
 
 ## License
 
-[MIT](./LICENSE)
+[Apache 2.0](./LICENSE)
