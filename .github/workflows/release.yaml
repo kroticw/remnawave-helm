@@ -3,8 +3,7 @@ name: Release Charts
 on:
   push:
     tags:
-      - "remnawave-panel-[0-9]+.[0-9]+.[0-9]+"
-      - "remnawave-subscription-page-[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   release:
@@ -12,6 +11,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        chart:
+          - remnawave-panel
+          - remnawave-subscription-page
 
     steps:
       - name: Checkout
@@ -26,24 +31,16 @@ jobs:
             --username ${{ github.actor }} \
             --password-stdin
 
-      - name: Determine changed chart
-        id: chart
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-          if [[ "$TAG" == remnawave-panel-* ]]; then
-            echo "name=remnawave-panel" >> "$GITHUB_OUTPUT"
-            echo "path=charts/remnawave-panel" >> "$GITHUB_OUTPUT"
-          elif [[ "$TAG" == remnawave-subscription-page-* ]]; then
-            echo "name=remnawave-subscription-page" >> "$GITHUB_OUTPUT"
-            echo "path=charts/remnawave-subscription-page" >> "$GITHUB_OUTPUT"
-          else
-            echo "Unknown tag format: $TAG" && exit 1
-          fi
+      - name: Resolve version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Package chart
-        run: helm package ${{ steps.chart.outputs.path }}
+        run: |
+          helm package charts/${{ matrix.chart }} \
+            --version ${{ steps.version.outputs.version }}
 
       - name: Push chart to GHCR
         run: |
-          helm push ${{ steps.chart.outputs.name }}-*.tgz \
+          helm push ${{ matrix.chart }}-${{ steps.version.outputs.version }}.tgz \
             oci://ghcr.io/${{ github.repository_owner }}/remnawave-helm
