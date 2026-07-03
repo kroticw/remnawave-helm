@@ -112,3 +112,18 @@ serviceMonitor:
   interval: 30s
   scrapeTimeout: 10s
   labels: {}
+
+extraVolumes: []
+# - name: certificates
+#   secret:
+#     secretName: remnawave-certificates
+# - name: config
+#   configMap:
+#     name: my-config
+# - name: empty-dir
+#   emptyDir: {}
+
+extraVolumeMounts: []
+# - name: certificates
+#   mountPath: /var/lib/remnawave/configs/xray/ssl
+#   readOnly: true
