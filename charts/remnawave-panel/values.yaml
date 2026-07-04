@@ -113,17 +113,22 @@ serviceMonitor:
   scrapeTimeout: 10s
   labels: {}
 
-extraVolumes: []
-# - name: certificates
+volumes: []
+# - name: certificates-node01
 #   secret:
-#     secretName: remnawave-certificates
-# - name: config
-#   configMap:
-#     name: my-config
-# - name: empty-dir
-#   emptyDir: {}
+#     secretName: node01.example.com-tls
+#     items:
+#     - key: tls.crt
+#       path: fullchain.pem
+#     - key: tls.key
+#       path: privkey.key
 
-extraVolumeMounts: []
-# - name: certificates
-#   mountPath: /var/lib/remnawave/configs/xray/ssl
+volumeMounts: []
+# - name: certificates-node01
+#   mountPath: /var/lib/remnawave/configs/xray/ssl/node01/privkey.key
+#   subPath: privkey.key
+#   readOnly: true
+# - name: certificates-node01
+#   mountPath: /var/lib/remnawave/configs/xray/ssl/node01/fullchain.pem
+#   subPath: fullchain.pem
 #   readOnly: true
