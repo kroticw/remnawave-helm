@@ -140,8 +140,36 @@ helm install remnawave-panel charts/remnawave-panel \
 | `nodeSelector`            | Node selector                                              | `{}`                |
 | `tolerations`             | Toleration'ы                                               | `[]`                |
 | `affinity`                | Правила affinity                                           | `{}`                |
+| `volumes`                 | Дополнительные volume пода (например секреты/configmaps с TLS-сертификатами Xray) | `[]` |
+| `volumeMounts`            | Дополнительные монтируемые в контейнер тома                | `[]`                |
 
 > `ingress.enabled` и `httproute.enabled` взаимоисключающие. Одновременное включение обоих приведёт к ошибке рендеринга.
+
+### Монтирование пользовательских volume (например TLS-сертификатов Xray)
+
+Панель позволяет подключать произвольные volume и монтировать их в контейнер. Это полезно, чтобы передать Xray TLS-сертификаты, которыми чарт не управляет (например, сертификаты, выпущенные сторонним средством и сохранённые в Kubernetes Secret).
+
+```yaml
+volumes:
+  - name: certificates-node01
+    secret:
+      secretName: node01.example.com-tls
+      items:
+        - key: tls.crt
+          path: fullchain.pem
+        - key: tls.key
+          path: privkey.key
+
+volumeMounts:
+  - name: certificates-node01
+    mountPath: /var/lib/remnawave/configs/xray/ssl/node01/privkey.key
+    subPath: privkey.key
+    readOnly: true
+  - name: certificates-node01
+    mountPath: /var/lib/remnawave/configs/xray/ssl/node01/fullchain.pem
+    subPath: fullchain.pem
+    readOnly: true
+```
 
 ### remnawave-subscription-page
 
