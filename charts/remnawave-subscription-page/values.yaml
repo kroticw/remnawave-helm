@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: remnawave/subscription-page
-  tag: "7.2.1"
+  tag: "8.0.0"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -31,6 +31,15 @@ securityContext: {}
 #   Optional:
 #     APP_PORT              - Service port (default: 3010)
 #     CUSTOM_SUB_PREFIX     - Custom root path (no leading/trailing slashes)
+#     TRUST_PROXY           - Express "trust proxy" setting used to resolve the real
+#                             client IP from the trusted hop (default: 1).
+#                             Accepts true/false, a hop count, or a comma-separated
+#                             list of presets (loopback, linklocal, uniquelocal),
+#                             IP addresses and CIDR subnets
+#     CADDY_AUTH_API_TOKEN  - X-Api-Key sent to the panel when using "Caddy with
+#                             security" or "Tiny Auth"
+#     CLOUDFLARE_ZERO_TRUST_CLIENT_ID     - Cloudflare Zero Trust client ID
+#     CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET - Cloudflare Zero Trust client secret
 #     MARZBAN_LEGACY_LINK_ENABLED  - Enable Marzban legacy links (default: false)
 #     MARZBAN_LEGACY_SECRET_KEY    - Secret for Marzban legacy links
 #     SUBSCRIPTION_UI_DISPLAY_RAW_KEYS - Show raw vless:// links (default: false)
