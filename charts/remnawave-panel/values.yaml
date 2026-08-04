@@ -112,3 +112,23 @@ serviceMonitor:
   interval: 30s
   scrapeTimeout: 10s
   labels: {}
+
+volumes: []
+# - name: certificates-node01
+#   secret:
+#     secretName: node01.example.com-tls
+#     items:
+#     - key: tls.crt
+#       path: fullchain.pem
+#     - key: tls.key
+#       path: privkey.key
+
+volumeMounts: []
+# - name: certificates-node01
+#   mountPath: /var/lib/remnawave/configs/xray/ssl/node01/privkey.key
+#   subPath: privkey.key
+#   readOnly: true
+# - name: certificates-node01
+#   mountPath: /var/lib/remnawave/configs/xray/ssl/node01/fullchain.pem
+#   subPath: fullchain.pem
+#   readOnly: true
