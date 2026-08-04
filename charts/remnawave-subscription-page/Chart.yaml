@@ -2,8 +2,8 @@ apiVersion: v2
 name: remnawave-subscription-page
 description: Helm chart for Remnawave subscription page
 type: application
-version: 0.2.0
-appVersion: "7.2.1"
+version: 0.3.0
+appVersion: "8.0.0"
 keywords:
   - remnawave
   - vpn

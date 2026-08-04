@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: remnawave/backend
-  tag: "2.7.4"
+  tag: "3.2.1"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -30,8 +30,9 @@ securityContext: {}
 #     REDIS_HOST            - Redis/KeyDB hostname
 #     REDIS_PORT            - Redis/KeyDB port (default: 6379)
 #     REDIS_DB              - Redis/KeyDB database number (default: 0)
-#     JWT_AUTH_SECRET       - Auth JWT secret (min 64 chars, use: openssl rand -hex 64)
-#     JWT_API_TOKENS_SECRET - API tokens JWT secret (min 64 chars)
+#     APP_SECRET            - Application secret (use: openssl rand -hex 64).
+#                             Replaces JWT_AUTH_SECRET and JWT_API_TOKENS_SECRET,
+#                             which were removed in panel 3.0.0
 #     FRONT_END_DOMAIN      - Panel public URL (e.g. https://panel.example.com)
 #     SUB_PUBLIC_DOMAIN     - Subscription public URL (e.g. https://sub.example.com/api/sub)
 #     METRICS_USER          - Prometheus metrics basic auth username
@@ -49,7 +50,11 @@ securityContext: {}
 #     WEBHOOK_ENABLED       - Enable webhooks (default: false)
 #     WEBHOOK_URL           - Webhook endpoint URL
 #     WEBHOOK_SECRET_HEADER - Webhook signature key (min 32 chars)
-#     IS_DOCS_ENABLED       - Enable Swagger/Scalar docs (default: false)
+#     EXPIRATION_NOTIFICATIONS_ENABLED - Enable expiration notifications (default: false)
+#     EXPIRATION_NOTIFICATIONS - Hours relative to user expiration, ASC order
+#                             (negative = before, positive = after), e.g. [-72, -48, -24, 24]
+#     EXPORT_TO_STREAM_ENABLED - Export panel events to Redis Streams (default: false)
+#     EXPORT_TO_STREAM_MAXLEN  - Approximate max messages kept per stream (default: 3000)
 #     IS_HTTP_LOGGING_ENABLED - Enable HTTP request logging (default: false)
 #     ENABLE_DEBUG_LOGS     - Enable debug logging (default: false)
 existingSecret: ""

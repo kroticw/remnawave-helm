@@ -8,8 +8,8 @@ Helm charts for deploying [Remnawave](https://github.com/remnawave/backend) VPN 
 
 | Chart                                                                 | Description                        | Default Image                        |
 |-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
-| [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:2`                |
-| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Lightweight subscription portal    | `remnawave/subscription-page:latest` |
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:3.2.1`            |
+| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Lightweight subscription portal    | `remnawave/subscription-page:8.0.0`  |
 
 The charts are independent and can be deployed in any combination: both in the same namespace, in different namespaces within one cluster, or in entirely separate clusters. The subscription page communicates with the panel over HTTPS using a configured API token.
 
@@ -20,6 +20,23 @@ The charts are independent and can be deployed in any combination: both in the s
 - For `ingress`: an Ingress controller (e.g. ingress-nginx) and cert-manager
 - For `httproute`: [Gateway API CRDs](https://gateway-api.sigs.k8s.io/) installed and a Gateway controller (e.g. Envoy Gateway)
 - For `serviceMonitor`: prometheus-operator or victoria-metrics-operator
+
+## Upgrading to chart 0.3.0
+
+Chart `0.3.0` moves `remnawave-panel` from panel `2.7.4` to `3.2.1` and `remnawave-subscription-page` from `7.2.1` to `8.0.0`.
+
+Panel `3.0.0` replaced the two JWT secrets with a single `APP_SECRET`. Update your existing Secret **before** upgrading, otherwise the panel will not start:
+
+```bash
+kubectl patch secret panel-secret \
+  --namespace remnawave \
+  --type merge \
+  --patch "{\"stringData\":{\"APP_SECRET\":\"$(openssl rand -hex 64)\"}}"
+```
+
+The removed keys `JWT_AUTH_SECRET`, `JWT_API_TOKENS_SECRET`, `IS_DOCS_ENABLED`, `SCALAR_PATH`, `SWAGGER_PATH` and `CLOUDFLARE_TOKEN` are ignored by panel `3.x` and can be deleted from the Secret.
+
+Rotating the auth secret invalidates existing panel sessions and issued API tokens — plan the upgrade accordingly.
 
 ## Installing the charts
 
@@ -36,8 +53,7 @@ kubectl create secret generic panel-secret \
   --from-literal=REDIS_HOST='redis' \
   --from-literal=REDIS_PORT='6379' \
   --from-literal=REDIS_DB='0' \
-  --from-literal=JWT_AUTH_SECRET="$(openssl rand -hex 64)" \
-  --from-literal=JWT_API_TOKENS_SECRET="$(openssl rand -hex 64)" \
+  --from-literal=APP_SECRET="$(openssl rand -hex 64)" \
   --from-literal=FRONT_END_DOMAIN='https://panel.example.com' \
   --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub' \
   --from-literal=METRICS_USER='metrics' \
@@ -205,8 +221,7 @@ volumeMounts:
 | `REDIS_HOST`                        | Yes      | Redis/KeyDB hostname                                                |
 | `REDIS_PORT`                        | Yes      | Redis/KeyDB port (default: `6379`)                                  |
 | `REDIS_DB`                          | Yes      | Redis database number (default: `0`)                                |
-| `JWT_AUTH_SECRET`                   | Yes      | Auth JWT secret, min 64 chars (`openssl rand -hex 64`)              |
-| `JWT_API_TOKENS_SECRET`             | Yes      | API tokens JWT secret, min 64 chars                                 |
+| `APP_SECRET`                        | Yes      | Application secret (`openssl rand -hex 64`)                         |
 | `FRONT_END_DOMAIN`                  | Yes      | Panel public URL, used for CORS (e.g. `https://panel.example.com`)  |
 | `SUB_PUBLIC_DOMAIN`                 | Yes      | Subscription public URL (e.g. `https://sub.example.com/api/sub`)    |
 | `APP_PORT`                          | No       | Panel port (default: `3000`)                                        |
@@ -223,7 +238,10 @@ volumeMounts:
 | `WEBHOOK_ENABLED`                   | No       | Enable webhook notifications (default: `false`)                     |
 | `WEBHOOK_URL`                       | No       | Webhook endpoint URL                                                |
 | `WEBHOOK_SECRET_HEADER`             | No       | Webhook signature key, min 32 chars                                 |
-| `IS_DOCS_ENABLED`                   | No       | Enable Swagger/Scalar UI (default: `false`)                         |
+| `EXPIRATION_NOTIFICATIONS_ENABLED`  | No       | Enable expiration notifications (default: `false`)                  |
+| `EXPIRATION_NOTIFICATIONS`          | No       | Hours relative to expiration, ASC (e.g. `[-72, -48, -24, 24]`)      |
+| `EXPORT_TO_STREAM_ENABLED`          | No       | Export panel events to Redis Streams (default: `false`)             |
+| `EXPORT_TO_STREAM_MAXLEN`           | No       | Approximate max messages kept per stream (default: `3000`)          |
 | `IS_HTTP_LOGGING_ENABLED`           | No       | Enable HTTP request logging (default: `false`)                      |
 | `ENABLE_DEBUG_LOGS`                 | No       | Enable debug logging (default: `false`)                             |
 
@@ -237,6 +255,10 @@ For the full list see [Remnawave environment variables docs](https://docs.rw/doc
 | `REMNAWAVE_API_TOKEN`              | Yes      | API token from panel: Settings → API Tokens                        |
 | `APP_PORT`                         | No       | Service port (default: `3010`)                                     |
 | `CUSTOM_SUB_PREFIX`                | No       | Custom root path, no leading/trailing slashes                      |
+| `TRUST_PROXY`                      | No       | Express `trust proxy` setting used to resolve the real client IP (default: `1`) |
+| `CADDY_AUTH_API_TOKEN`             | No       | `X-Api-Key` sent to the panel behind Caddy security / Tiny Auth    |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_ID`  | No       | Cloudflare Zero Trust client ID                                    |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET` | No    | Cloudflare Zero Trust client secret                                |
 | `MARZBAN_LEGACY_LINK_ENABLED`      | No       | Enable Marzban legacy link support (default: `false`)              |
 | `MARZBAN_LEGACY_SECRET_KEY`        | No       | Secret for Marzban legacy links                                    |
 | `SUBSCRIPTION_UI_DISPLAY_RAW_KEYS` | No       | Show raw `vless://` links (default: `false`)                       |
