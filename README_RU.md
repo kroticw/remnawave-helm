@@ -8,8 +8,8 @@ Helm-чарты для развёртывания компонентов VPN-п�
 
 | Чарт                                                                  | Описание                           | Образ по умолчанию                   |
 |-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
-| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:2`                |
-| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок             | `remnawave/subscription-page:latest` |
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:3.2.1`            |
+| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок             | `remnawave/subscription-page:8.0.0`  |
 
 Чарты независимы и могут быть развёрнуты в любой комбинации: оба в одном неймспейсе, в разных неймспейсах одного кластера или в полностью отдельных кластерах. Страница подписок обращается к панели по HTTPS с использованием API-токена.
 
@@ -20,6 +20,23 @@ Helm-чарты для развёртывания компонентов VPN-п�
 - Для `ingress`: Ingress-контроллер (например ingress-nginx) и cert-manager
 - Для `httproute`: установленные [Gateway API CRD](https://gateway-api.sigs.k8s.io/) и Gateway-контроллер (например Envoy Gateway)
 - Для `serviceMonitor`: prometheus-operator или victoria-metrics-operator
+
+## Обновление до чарта 0.3.0
+
+Чарт `0.3.0` переводит `remnawave-panel` с панели `2.7.4` на `3.2.1`, а `remnawave-subscription-page` — с `7.2.1` на `8.0.0`.
+
+В панели `3.0.0` два JWT-секрета заменены одним `APP_SECRET`. Обновите существующий Secret **до** апгрейда, иначе панель не запустится:
+
+```bash
+kubectl patch secret panel-secret \
+  --namespace remnawave \
+  --type merge \
+  --patch "{\"stringData\":{\"APP_SECRET\":\"$(openssl rand -hex 64)\"}}"
+```
+
+Удалённые ключи `JWT_AUTH_SECRET`, `JWT_API_TOKENS_SECRET`, `IS_DOCS_ENABLED`, `SCALAR_PATH`, `SWAGGER_PATH` и `CLOUDFLARE_TOKEN` панель `3.x` игнорирует, их можно удалить из Secret.
+
+Смена auth-секрета инвалидирует активные сессии в панели и выданные API-токены — планируйте обновление с учётом этого.
 
 ## Установка
 
@@ -36,8 +53,7 @@ kubectl create secret generic panel-secret \
   --from-literal=REDIS_HOST='redis' \
   --from-literal=REDIS_PORT='6379' \
   --from-literal=REDIS_DB='0' \
-  --from-literal=JWT_AUTH_SECRET="$(openssl rand -hex 64)" \
-  --from-literal=JWT_API_TOKENS_SECRET="$(openssl rand -hex 64)" \
+  --from-literal=APP_SECRET="$(openssl rand -hex 64)" \
   --from-literal=FRONT_END_DOMAIN='https://panel.example.com' \
   --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub' \
   --from-literal=METRICS_USER='metrics' \
@@ -205,8 +221,7 @@ volumeMounts:
 | `REDIS_HOST`                        | Да         | Хост Redis/KeyDB                                                     |
 | `REDIS_PORT`                        | Да         | Порт Redis/KeyDB (по умолчанию: `6379`)                              |
 | `REDIS_DB`                          | Да         | Номер базы данных Redis (по умолчанию: `0`)                          |
-| `JWT_AUTH_SECRET`                   | Да         | Секрет для Auth JWT, минимум 64 символа (`openssl rand -hex 64`)     |
-| `JWT_API_TOKENS_SECRET`             | Да         | Секрет для API-токенов JWT, минимум 64 символа                       |
+| `APP_SECRET`                        | Да         | Секрет приложения (`openssl rand -hex 64`)                           |
 | `FRONT_END_DOMAIN`                  | Да         | Публичный URL панели для CORS (например `https://panel.example.com`) |
 | `SUB_PUBLIC_DOMAIN`                 | Да         | Публичный URL подписок (например `https://sub.example.com/api/sub`)  |
 | `APP_PORT`                          | Нет        | Порт панели (по умолчанию: `3000`)                                   |
@@ -223,7 +238,10 @@ volumeMounts:
 | `WEBHOOK_ENABLED`                   | Нет        | Включить webhook-уведомления (по умолчанию: `false`)                 |
 | `WEBHOOK_URL`                       | Нет        | URL webhook-эндпоинта                                                |
 | `WEBHOOK_SECRET_HEADER`             | Нет        | Ключ подписи webhook, минимум 32 символа                             |
-| `IS_DOCS_ENABLED`                   | Нет        | Включить Swagger/Scalar UI (по умолчанию: `false`)                   |
+| `EXPIRATION_NOTIFICATIONS_ENABLED`  | Нет        | Уведомления об истечении подписки (по умолчанию: `false`)            |
+| `EXPIRATION_NOTIFICATIONS`          | Нет        | Часы относительно истечения, по возрастанию (`[-72, -48, -24, 24]`)  |
+| `EXPORT_TO_STREAM_ENABLED`          | Нет        | Экспорт событий панели в Redis Streams (по умолчанию: `false`)       |
+| `EXPORT_TO_STREAM_MAXLEN`           | Нет        | Примерный лимит сообщений в стриме (по умолчанию: `3000`)            |
 | `IS_HTTP_LOGGING_ENABLED`           | Нет        | Включить логирование HTTP-запросов (по умолчанию: `false`)           |
 | `ENABLE_DEBUG_LOGS`                 | Нет        | Включить debug-логирование (по умолчанию: `false`)                   |
 
@@ -237,6 +255,10 @@ volumeMounts:
 | `REMNAWAVE_API_TOKEN`              | Да         | API-токен из панели: Settings → API Tokens                         |
 | `APP_PORT`                         | Нет        | Порт сервиса (по умолчанию: `3010`)                                |
 | `CUSTOM_SUB_PREFIX`                | Нет        | Кастомный корневой путь, без ведущего и завершающего слеша         |
+| `TRUST_PROXY`                      | Нет        | Настройка Express `trust proxy` для определения реального IP клиента (по умолчанию: `1`) |
+| `CADDY_AUTH_API_TOKEN`             | Нет        | `X-Api-Key` для запросов к панели за Caddy security / Tiny Auth    |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_ID`  | Нет        | Client ID для Cloudflare Zero Trust                                |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET` | Нет     | Client Secret для Cloudflare Zero Trust                            |
 | `MARZBAN_LEGACY_LINK_ENABLED`      | Нет        | Поддержка Marzban legacy-ссылок (по умолчанию: `false`)            |
 | `MARZBAN_LEGACY_SECRET_KEY`        | Нет        | Секрет для Marzban legacy-ссылок                                   |
 | `SUBSCRIPTION_UI_DISPLAY_RAW_KEYS` | Нет        | Показывать сырые `vless://`-ссылки (по умолчанию: `false`)         |
