@@ -69,3 +69,16 @@ TLS secret name for ingress
 {{- printf "%s-tls" .Values.ingress.host }}
 {{- end }}
 {{- end }}
+
+{{/*
+Paths the application actually serves, as regular expressions.
+Shared by the Ingress and the HTTPRoute so both routing modes let exactly the
+same set of requests through.
+*/}}
+{{- define "remnawave-subscription-page.allowedPathRegexes" -}}
+{{- $uuid := .Values.pathFilter.shortUuidPattern -}}
+{{- $clients := join "|" .Values.pathFilter.clientTypes -}}
+- /assets/.*
+- {{ printf "/%s$" $uuid | quote }}
+- {{ printf "/%s/(%s)$" $uuid $clients | quote }}
+{{- end }}
