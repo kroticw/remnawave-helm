@@ -6,9 +6,14 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "remnawave-subscription-page.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- if or .Values.ingress.annotations .Values.pathFilter.enabled }}
   annotations:
+    {{- if .Values.pathFilter.enabled }}
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   {{- if .Values.ingress.className }}
@@ -18,6 +23,17 @@ spec:
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
+          {{- if .Values.pathFilter.enabled }}
+          {{- range include "remnawave-subscription-page.allowedPathRegexes" . | fromYamlArray }}
+          - path: {{ . | quote }}
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: {{ include "remnawave-subscription-page.fullname" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+          {{- end }}
+          {{- else }}
           - path: /
             pathType: Prefix
             backend:
@@ -25,6 +41,7 @@ spec:
                 name: {{ include "remnawave-subscription-page.fullname" . }}
                 port:
                   number: {{ .Values.service.port }}
+          {{- end }}
   {{- if .Values.ingress.tls }}
   tls:
     - hosts:

@@ -13,9 +13,17 @@ spec:
     - {{ .Values.httproute.hostname | quote }}
   rules:
     - matches:
+        {{- if .Values.pathFilter.enabled }}
+        {{- range include "remnawave-subscription-page.allowedPathRegexes" . | fromYamlArray }}
+        - path:
+            type: RegularExpression
+            value: {{ . | quote }}
+        {{- end }}
+        {{- else }}
         - path:
             type: PathPrefix
             value: /
+        {{- end }}
       backendRefs:
         - name: {{ include "remnawave-subscription-page.fullname" . }}
           port: {{ .Values.service.port }}
