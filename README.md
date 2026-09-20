@@ -8,7 +8,7 @@ Helm charts for deploying [Remnawave](https://github.com/remnawave/backend) VPN 
 
 | Chart                                                                 | Description                        | Default Image                        |
 |-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
-| [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:3.2.1`            |
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:3.4.4`            |
 | [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Lightweight subscription portal    | `remnawave/subscription-page:8.0.0`  |
 
 The charts are independent and can be deployed in any combination: both in the same namespace, in different namespaces within one cluster, or in entirely separate clusters. The subscription page communicates with the panel over HTTPS using a configured API token.
@@ -21,22 +21,11 @@ The charts are independent and can be deployed in any combination: both in the s
 - For `httproute`: [Gateway API CRDs](https://gateway-api.sigs.k8s.io/) installed and a Gateway controller (e.g. Envoy Gateway)
 - For `serviceMonitor`: prometheus-operator or victoria-metrics-operator
 
-## Upgrading to chart 0.3.0
+## Upgrading
 
-Chart `0.3.0` moves `remnawave-panel` from panel `2.7.4` to `3.2.1` and `remnawave-subscription-page` from `7.2.1` to `8.0.0`.
+Upgrading an installation that already serves users is described in [docs/UPGRADING.md](./docs/UPGRADING.md): what each version needs from the Secret, how database migrations run, the order of operations and how to roll back.
 
-Panel `3.0.0` replaced the two JWT secrets with a single `APP_SECRET`. Update your existing Secret **before** upgrading, otherwise the panel will not start:
-
-```bash
-kubectl patch secret panel-secret \
-  --namespace remnawave \
-  --type merge \
-  --patch "{\"stringData\":{\"APP_SECRET\":\"$(openssl rand -hex 64)\"}}"
-```
-
-The removed keys `JWT_AUTH_SECRET`, `JWT_API_TOKENS_SECRET`, `IS_DOCS_ENABLED`, `SCALAR_PATH`, `SWAGGER_PATH` and `CLOUDFLARE_TOKEN` are ignored by panel `3.x` and can be deleted from the Secret.
-
-Rotating the auth secret invalidates existing panel sessions and issued API tokens — plan the upgrade accordingly.
+Chart `0.4.0` moves the panel from `3.2.1` to `3.4.4`. The subscription page stays on `8.0.0`.
 
 ## Installing the charts
 
@@ -52,7 +41,6 @@ kubectl create secret generic panel-secret \
   --from-literal=DATABASE_URL='postgresql://remnawave:password@postgres:5432/remnawave' \
   --from-literal=REDIS_HOST='redis' \
   --from-literal=REDIS_PORT='6379' \
-  --from-literal=REDIS_DB='0' \
   --from-literal=APP_SECRET="$(openssl rand -hex 64)" \
   --from-literal=FRONT_END_DOMAIN='https://panel.example.com' \
   --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub' \
@@ -135,8 +123,9 @@ helm install remnawave-panel charts/remnawave-panel \
 |---------------------------|-----------------------------------------------------|---------------------|
 | `replicaCount`            | Number of replicas                                  | `1`                 |
 | `image.repository`        | Image repository                                    | `remnawave/backend` |
-| `image.tag`               | Image tag                                           | `2`                 |
-| `image.pullPolicy`        | Image pull policy                                   | `Always`            |
+| `image.tag`               | Image tag                                           | `3.4.4`             |
+| `image.pullPolicy`        | Image pull policy                                   | `IfNotPresent`      |
+| `strategy`                | Deployment strategy; `Recreate` because the entrypoint migrates the database | `{type: Recreate}` |
 | `existingSecret`          | **Required.** Name of existing Secret with env vars | `""`                |
 | `service.port`            | Panel HTTP port                                     | `3000`              |
 | `service.metricsPort`     | Prometheus metrics port                             | `3001`              |
@@ -149,6 +138,9 @@ helm install remnawave-panel charts/remnawave-panel \
 | `httproute.enabled`       | Enable Gateway API HTTPRoute                        | `false`             |
 | `httproute.parentRefs`    | Gateway parentRefs                                  | see values.yaml     |
 | `httproute.hostname`      | Hostname for HTTPRoute                              | `""`                |
+| `startupProbe`            | Startup probe; budgets 5 minutes for migrations     | see values.yaml     |
+| `livenessProbe`           | Liveness probe (`tcpSocket`)                        | see values.yaml     |
+| `readinessProbe`          | Readiness probe (`httpGet /api/health`)             | see values.yaml     |
 | `serviceMonitor.enabled`  | Enable ServiceMonitor for metrics scraping          | `false`             |
 | `serviceMonitor.interval` | Scrape interval                                     | `30s`               |
 | `serviceMonitor.labels`   | Additional labels on ServiceMonitor                 | `{}`                |
@@ -193,7 +185,7 @@ volumeMounts:
 |-------------------------|-----------------------------------------------------|-------------------------------|
 | `replicaCount`          | Number of replicas                                  | `1`                           |
 | `image.repository`      | Image repository                                    | `remnawave/subscription-page` |
-| `image.tag`             | Image tag                                           | `latest`                      |
+| `image.tag`             | Image tag                                           | `8.0.0`                       |
 | `image.pullPolicy`      | Image pull policy                                   | `IfNotPresent`                |
 | `existingSecret`        | **Required.** Name of existing Secret with env vars | `""`                          |
 | `service.port`          | HTTP port                                           | `3010`                        |
@@ -215,53 +207,79 @@ volumeMounts:
 
 ### remnawave-panel secret keys
 
-| Key                                 | Required | Description                                                         |
-|-------------------------------------|----------|---------------------------------------------------------------------|
-| `DATABASE_URL`                      | Yes      | PostgreSQL connection string: `postgresql://user:pass@host:5432/db` |
-| `REDIS_HOST`                        | Yes      | Redis/KeyDB hostname                                                |
-| `REDIS_PORT`                        | Yes      | Redis/KeyDB port (default: `6379`)                                  |
-| `REDIS_DB`                          | Yes      | Redis database number (default: `0`)                                |
-| `APP_SECRET`                        | Yes      | Application secret (`openssl rand -hex 64`)                         |
-| `FRONT_END_DOMAIN`                  | Yes      | Panel public URL, used for CORS (e.g. `https://panel.example.com`)  |
-| `SUB_PUBLIC_DOMAIN`                 | Yes      | Subscription public URL (e.g. `https://sub.example.com/api/sub`)    |
-| `APP_PORT`                          | No       | Panel port (default: `3000`)                                        |
-| `METRICS_PORT`                      | No       | Metrics port (default: `3001`)                                      |
-| `API_INSTANCES`                     | No       | Number of API workers (default: `1`)                                |
-| `REDIS_PASSWORD`                    | No       | Redis password                                                      |
-| `REDIS_SOCKET`                      | No       | Redis Unix socket path (alternative to host/port)                   |
-| `JWT_AUTH_LIFETIME`                 | No       | Auth token lifetime in hours (default: `12`)                        |
-| `PANEL_DOMAIN`                      | No       | Panel domain for link generation                                    |
-| `METRICS_USER`                      | Yes      | Prometheus metrics basic auth username                              |
-| `METRICS_PASS`                      | Yes      | Prometheus metrics basic auth password                              |
-| `IS_TELEGRAM_NOTIFICATIONS_ENABLED` | No       | Enable Telegram notifications (default: `false`)                    |
-| `TELEGRAM_BOT_TOKEN`                | No       | Telegram bot token                                                  |
-| `WEBHOOK_ENABLED`                   | No       | Enable webhook notifications (default: `false`)                     |
-| `WEBHOOK_URL`                       | No       | Webhook endpoint URL                                                |
-| `WEBHOOK_SECRET_HEADER`             | No       | Webhook signature key, min 32 chars                                 |
-| `EXPIRATION_NOTIFICATIONS_ENABLED`  | No       | Enable expiration notifications (default: `false`)                  |
-| `EXPIRATION_NOTIFICATIONS`          | No       | Hours relative to expiration, ASC (e.g. `[-72, -48, -24, 24]`)      |
-| `EXPORT_TO_STREAM_ENABLED`          | No       | Export panel events to Redis Streams (default: `false`)             |
-| `EXPORT_TO_STREAM_MAXLEN`           | No       | Approximate max messages kept per stream (default: `3000`)          |
-| `IS_HTTP_LOGGING_ENABLED`           | No       | Enable HTTP request logging (default: `false`)                      |
-| `ENABLE_DEBUG_LOGS`                 | No       | Enable debug logging (default: `false`)                             |
+| Key                                             | Required    | Description                                                             |
+|-------------------------------------------------|-------------|-------------------------------------------------------------------------|
+| `DATABASE_URL`                                  | Yes         | PostgreSQL connection string: `postgresql://user:pass@host:5432/db`     |
+| `APP_SECRET`                                    | Yes         | Application secret (`openssl rand -hex 64`); `change_me` is rejected    |
+| `FRONT_END_DOMAIN`                              | Yes         | Panel public URL, used for CORS (e.g. `https://panel.example.com`)      |
+| `SUB_PUBLIC_DOMAIN`                             | Yes         | Subscription public URL (e.g. `https://sub.example.com/api/sub`)        |
+| `METRICS_USER`                                  | Yes         | Prometheus metrics basic auth username                                  |
+| `METRICS_PASS`                                  | Yes         | Prometheus metrics basic auth password                                  |
+| `REDIS_SOCKET`                                  | Conditional | Redis/Valkey Unix socket path. Provide this **or** host plus port       |
+| `REDIS_HOST`                                    | Conditional | Redis/Valkey hostname, together with `REDIS_PORT`                       |
+| `REDIS_PORT`                                    | Conditional | Redis/Valkey port, together with `REDIS_HOST`                           |
+| `APP_PORT`                                      | No          | Panel port (default: `3000`)                                            |
+| `METRICS_PORT`                                  | No          | Metrics port (default: `3001`)                                          |
+| `API_INSTANCES`                                 | No          | Number of API workers (default: `1`)                                    |
+| `REDIS_USERNAME`                                | No          | Redis ACL username                                                      |
+| `REDIS_PASSWORD`                                | No          | Redis password                                                          |
+| `REDIS_DB`                                      | No          | Redis database index, 0-15 (default: `1`)                               |
+| `JWT_AUTH_LIFETIME`                             | No          | Auth token lifetime in hours, 12-168 (default: `12`)                    |
+| `PANEL_DOMAIN`                                  | No          | Panel domain for link generation                                        |
+| `SHORT_UUID_METHOD`                             | No          | Subscription link id generator: `nanoid`, `uuid`, `custom` (3.4.0+)     |
+| `SHORT_UUID_LENGTH`                             | No          | Length for the `nanoid` method, 16-64 (default: `16`)                   |
+| `SHORT_UUID_CUSTOM_PATTERN`                     | No          | Pattern for `SHORT_UUID_METHOD=custom`, e.g. `{hex:16}-{digits:10}`     |
+| `IS_TELEGRAM_NOTIFICATIONS_ENABLED`             | No          | Enable Telegram notifications (default: `false`)                        |
+| `TELEGRAM_BOT_TOKEN`                            | No          | Telegram bot token; required when notifications are enabled             |
+| `TELEGRAM_BOT_API_ROOT`                         | No          | Telegram Bot API base URL (default: `https://api.telegram.org`)         |
+| `TELEGRAM_BOT_PROXY`                            | No          | Proxy URL for the Telegram bot                                          |
+| `TELEGRAM_NOTIFY_USERS`                         | No          | Chat id for user events                                                 |
+| `TELEGRAM_NOTIFY_NODES`                         | No          | Chat id for node events                                                 |
+| `TELEGRAM_NOTIFY_CRM`                           | No          | Chat id for CRM events                                                  |
+| `TELEGRAM_NOTIFY_SERVICE`                       | No          | Chat id for service events                                              |
+| `TELEGRAM_NOTIFY_TBLOCKER`                      | No          | Chat id for torrent-blocker events                                      |
+| `WEBHOOK_ENABLED`                               | No          | Enable webhook notifications (default: `false`)                         |
+| `WEBHOOK_URL`                                   | No          | Webhook endpoint URL; required when webhooks are enabled                |
+| `WEBHOOK_SECRET_HEADER`                         | No          | Webhook signature key: min 32 chars, letters and digits only            |
+| `EXPIRATION_NOTIFICATIONS_ENABLED`              | No          | Enable expiration notifications (default: `false`)                      |
+| `EXPIRATION_NOTIFICATIONS`                      | No          | Hours relative to expiration, ASC (e.g. `[-72, -48, -24, 24]`)          |
+| `BANDWIDTH_USAGE_NOTIFICATIONS_ENABLED`         | No          | Notify on traffic usage thresholds (default: `false`)                   |
+| `BANDWIDTH_USAGE_NOTIFICATIONS_THRESHOLD`       | No          | JSON array of percentages, e.g. `[60, 80]`                              |
+| `NOT_CONNECTED_USERS_NOTIFICATIONS_ENABLED`     | No          | Notify about idle users (default: `false`)                              |
+| `NOT_CONNECTED_USERS_NOTIFICATIONS_AFTER_HOURS` | No          | JSON array of hours, e.g. `[24, 72]`                                    |
+| `USER_USAGE_IGNORE_BELOW_BYTES`                 | No          | Drop usage records below this size (default: `0`)                       |
+| `SERVICE_CLEAN_USAGE_HISTORY`                   | No          | Prune usage history (default: `false`)                                  |
+| `SERVICE_DISABLE_USER_USAGE_RECORDS`            | No          | Stop writing user usage records (default: `false`)                      |
+| `SERVICE_DISABLE_SRH_RECORDS`                   | No          | Stop writing subscription request history (default: `false`)            |
+| `EXPORT_TO_STREAM_ENABLED`                      | No          | Export panel events to Redis Streams (default: `false`)                 |
+| `EXPORT_TO_STREAM_MAXLEN`                       | No          | Approximate max messages kept per stream (default: `3000`)              |
+| `IS_HTTP_LOGGING_ENABLED`                       | No          | Enable HTTP request logging (default: `false`)                          |
+| `ENABLE_DEBUG_LOGS`                             | No          | Enable debug logging (default: `false`)                                 |
+
+The Redis connection takes exactly one of the two forms: `REDIS_SOCKET`, or `REDIS_HOST` together with `REDIS_PORT`. Providing all three aborts startup.
 
 For the full list see [Remnawave environment variables docs](https://docs.rw/docs/install/environment-variables).
 
 ### remnawave-subscription-page secret keys
 
-| Key                                | Required | Description                                                        |
-|------------------------------------|----------|--------------------------------------------------------------------|
-| `REMNAWAVE_PANEL_URL`              | Yes      | Full URL of the Remnawave panel (e.g. `https://panel.example.com`) |
-| `REMNAWAVE_API_TOKEN`              | Yes      | API token from panel: Settings → API Tokens                        |
-| `APP_PORT`                         | No       | Service port (default: `3010`)                                     |
-| `CUSTOM_SUB_PREFIX`                | No       | Custom root path, no leading/trailing slashes                      |
-| `TRUST_PROXY`                      | No       | Express `trust proxy` setting used to resolve the real client IP (default: `1`) |
-| `CADDY_AUTH_API_TOKEN`             | No       | `X-Api-Key` sent to the panel behind Caddy security / Tiny Auth    |
-| `CLOUDFLARE_ZERO_TRUST_CLIENT_ID`  | No       | Cloudflare Zero Trust client ID                                    |
-| `CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET` | No    | Cloudflare Zero Trust client secret                                |
-| `MARZBAN_LEGACY_LINK_ENABLED`      | No       | Enable Marzban legacy link support (default: `false`)              |
-| `MARZBAN_LEGACY_SECRET_KEY`        | No       | Secret for Marzban legacy links                                    |
-| `SUBSCRIPTION_UI_DISPLAY_RAW_KEYS` | No       | Show raw `vless://` links (default: `false`)                       |
+| Key                                         | Required | Description                                                            |
+|---------------------------------------------|----------|------------------------------------------------------------------------|
+| `REMNAWAVE_PANEL_URL`                       | Yes      | Full URL of the panel; must start with `http://` or `https://`         |
+| `REMNAWAVE_API_TOKEN`                       | Yes      | API token from panel: Settings → API Tokens                            |
+| `APP_PORT`                                  | No       | Service port (default: `3010`)                                         |
+| `CUSTOM_SUB_PREFIX`                         | No       | Custom root path, no leading/trailing slashes                          |
+| `SUBPAGE_CONFIG_UUID`                       | No       | Subscription page config served by the panel (default: all-zero UUID)  |
+| `TRUST_PROXY`                               | No       | Express `trust proxy` setting used to resolve the real client IP (default: `1`) |
+| `CADDY_AUTH_API_TOKEN`                      | No       | `X-Api-Key` sent to the panel behind Caddy security / Tiny Auth        |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_ID`           | No       | Cloudflare Zero Trust client ID                                        |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET`       | No       | Cloudflare Zero Trust client secret                                    |
+| `MARZBAN_LEGACY_LINK_ENABLED`               | No       | Enable Marzban legacy link support (default: `false`)                  |
+| `MARZBAN_LEGACY_SECRET_KEY`                 | No       | Secret for Marzban legacy links; required when legacy links are on     |
+| `MARZBAN_LEGACY_SUBSCRIPTION_VALID_FROM`    | No       | Cut-off timestamp, e.g. `2025-01-17T15:38:45.065Z`                     |
+| `MARZBAN_LEGACY_DROP_REVOKED_SUBSCRIPTIONS` | No       | Reject revoked legacy links (default: `false`)                         |
+| `EGAMES_COOKIE`                             | No       | Cookie value for the eGames integration                                |
+
+Do not add `INTERNAL_JWT_SECRET` to this Secret. The image entrypoint generates it on every start, which is also why the chart never overrides the container command.
 
 ## Using with FluxCD and SOPS
 
@@ -294,7 +312,7 @@ spec:
   chart:
     spec:
       chart: remnawave-panel
-      version: "0.2.0"
+      version: "0.4.0"
       sourceRef:
         kind: HelmRepository
         name: remnawave-helm
@@ -328,7 +346,7 @@ spec:
   chart:
     spec:
       chart: remnawave-subscription-page
-      version: "0.1.0"
+      version: "0.4.0"
       sourceRef:
         kind: HelmRepository
         name: remnawave-helm
