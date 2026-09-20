@@ -8,7 +8,7 @@ Helm-чарты для развёртывания компонентов VPN-п�
 
 | Чарт                                                                  | Описание                           | Образ по умолчанию                   |
 |-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
-| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:3.2.1`            |
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:3.4.4`            |
 | [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок             | `remnawave/subscription-page:8.0.0`  |
 
 Чарты независимы и могут быть развёрнуты в любой комбинации: оба в одном неймспейсе, в разных неймспейсах одного кластера или в полностью отдельных кластерах. Страница подписок обращается к панели по HTTPS с использованием API-токена.
@@ -21,22 +21,11 @@ Helm-чарты для развёртывания компонентов VPN-п�
 - Для `httproute`: установленные [Gateway API CRD](https://gateway-api.sigs.k8s.io/) и Gateway-контроллер (например Envoy Gateway)
 - Для `serviceMonitor`: prometheus-operator или victoria-metrics-operator
 
-## Обновление до чарта 0.3.0
+## Обновление
 
-Чарт `0.3.0` переводит `remnawave-panel` с панели `2.7.4` на `3.2.1`, а `remnawave-subscription-page` — с `7.2.1` на `8.0.0`.
+Обновление установки, которая уже обслуживает пользователей, описано в [docs/UPGRADING_RU.md](./docs/UPGRADING_RU.md): что каждая версия требует от Secret, как идут миграции базы, в каком порядке обновлять и как откатываться.
 
-В панели `3.0.0` два JWT-секрета заменены одним `APP_SECRET`. Обновите существующий Secret **до** апгрейда, иначе панель не запустится:
-
-```bash
-kubectl patch secret panel-secret \
-  --namespace remnawave \
-  --type merge \
-  --patch "{\"stringData\":{\"APP_SECRET\":\"$(openssl rand -hex 64)\"}}"
-```
-
-Удалённые ключи `JWT_AUTH_SECRET`, `JWT_API_TOKENS_SECRET`, `IS_DOCS_ENABLED`, `SCALAR_PATH`, `SWAGGER_PATH` и `CLOUDFLARE_TOKEN` панель `3.x` игнорирует, их можно удалить из Secret.
-
-Смена auth-секрета инвалидирует активные сессии в панели и выданные API-токены — планируйте обновление с учётом этого.
+Чарт `0.4.0` переводит панель с `3.2.1` на `3.4.4`. Страница подписок остаётся на `8.0.0`.
 
 ## Установка
 
@@ -52,7 +41,6 @@ kubectl create secret generic panel-secret \
   --from-literal=DATABASE_URL='postgresql://remnawave:password@postgres:5432/remnawave' \
   --from-literal=REDIS_HOST='redis' \
   --from-literal=REDIS_PORT='6379' \
-  --from-literal=REDIS_DB='0' \
   --from-literal=APP_SECRET="$(openssl rand -hex 64)" \
   --from-literal=FRONT_END_DOMAIN='https://panel.example.com' \
   --from-literal=SUB_PUBLIC_DOMAIN='https://sub.example.com/api/sub' \
@@ -135,8 +123,9 @@ helm install remnawave-panel charts/remnawave-panel \
 |---------------------------|------------------------------------------------------------|---------------------|
 | `replicaCount`            | Количество реплик                                          | `1`                 |
 | `image.repository`        | Репозиторий образа                                         | `remnawave/backend` |
-| `image.tag`               | Тег образа                                                 | `2`                 |
-| `image.pullPolicy`        | Политика загрузки образа                                   | `Always`            |
+| `image.tag`               | Тег образа                                                 | `3.4.4`             |
+| `image.pullPolicy`        | Политика загрузки образа                                   | `IfNotPresent`      |
+| `strategy`                | Стратегия деплоймента; `Recreate`, потому что энтрипойнт мигрирует базу | `{type: Recreate}` |
 | `existingSecret`          | **Обязателен.** Имя существующего Secret с env-переменными | `""`                |
 | `service.port`            | HTTP-порт панели                                           | `3000`              |
 | `service.metricsPort`     | Порт метрик Prometheus                                     | `3001`              |
@@ -149,6 +138,9 @@ helm install remnawave-panel charts/remnawave-panel \
 | `httproute.enabled`       | Включить Gateway API HTTPRoute                             | `false`             |
 | `httproute.parentRefs`    | Gateway parentRefs                                         | см. values.yaml     |
 | `httproute.hostname`      | Имя хоста для HTTPRoute                                    | `""`                |
+| `startupProbe`            | Startup-проба; закладывает 5 минут на миграции             | см. values.yaml     |
+| `livenessProbe`           | Liveness-проба (`tcpSocket`)                               | см. values.yaml     |
+| `readinessProbe`          | Readiness-проба (`httpGet /api/health`)                    | см. values.yaml     |
 | `serviceMonitor.enabled`  | Включить ServiceMonitor для сбора метрик                   | `false`             |
 | `serviceMonitor.interval` | Интервал сбора метрик                                      | `30s`               |
 | `serviceMonitor.labels`   | Дополнительные метки ServiceMonitor                        | `{}`                |
@@ -193,7 +185,7 @@ volumeMounts:
 |-------------------------|------------------------------------------------------------|-------------------------------|
 | `replicaCount`          | Количество реплик                                          | `1`                           |
 | `image.repository`      | Репозиторий образа                                         | `remnawave/subscription-page` |
-| `image.tag`             | Тег образа                                                 | `latest`                      |
+| `image.tag`             | Тег образа                                                 | `8.0.0`                       |
 | `image.pullPolicy`      | Политика загрузки образа                                   | `IfNotPresent`                |
 | `existingSecret`        | **Обязателен.** Имя существующего Secret с env-переменными | `""`                          |
 | `service.port`          | HTTP-порт                                                  | `3010`                        |
@@ -215,53 +207,79 @@ volumeMounts:
 
 ### Ключи секрета remnawave-panel
 
-| Ключ                                | Обязателен | Описание                                                             |
-|-------------------------------------|------------|----------------------------------------------------------------------|
-| `DATABASE_URL`                      | Да         | Строка подключения PostgreSQL: `postgresql://user:pass@host:5432/db` |
-| `REDIS_HOST`                        | Да         | Хост Redis/KeyDB                                                     |
-| `REDIS_PORT`                        | Да         | Порт Redis/KeyDB (по умолчанию: `6379`)                              |
-| `REDIS_DB`                          | Да         | Номер базы данных Redis (по умолчанию: `0`)                          |
-| `APP_SECRET`                        | Да         | Секрет приложения (`openssl rand -hex 64`)                           |
-| `FRONT_END_DOMAIN`                  | Да         | Публичный URL панели для CORS (например `https://panel.example.com`) |
-| `SUB_PUBLIC_DOMAIN`                 | Да         | Публичный URL подписок (например `https://sub.example.com/api/sub`)  |
-| `APP_PORT`                          | Нет        | Порт панели (по умолчанию: `3000`)                                   |
-| `METRICS_PORT`                      | Нет        | Порт метрик (по умолчанию: `3001`)                                   |
-| `API_INSTANCES`                     | Нет        | Количество API-воркеров (по умолчанию: `1`)                          |
-| `REDIS_PASSWORD`                    | Нет        | Пароль Redis                                                         |
-| `REDIS_SOCKET`                      | Нет        | Unix-сокет Redis (альтернатива host/port)                            |
-| `JWT_AUTH_LIFETIME`                 | Нет        | Время жизни auth-токена в часах (по умолчанию: `12`)                 |
-| `PANEL_DOMAIN`                      | Нет        | Домен панели для генерации ссылок                                    |
-| `METRICS_USER`                      | Да         | Логин для basic auth на эндпоинте метрик                             |
-| `METRICS_PASS`                      | Да         | Пароль для basic auth на эндпоинте метрик                            |
-| `IS_TELEGRAM_NOTIFICATIONS_ENABLED` | Нет        | Включить Telegram-уведомления (по умолчанию: `false`)                |
-| `TELEGRAM_BOT_TOKEN`                | Нет        | Токен Telegram-бота                                                  |
-| `WEBHOOK_ENABLED`                   | Нет        | Включить webhook-уведомления (по умолчанию: `false`)                 |
-| `WEBHOOK_URL`                       | Нет        | URL webhook-эндпоинта                                                |
-| `WEBHOOK_SECRET_HEADER`             | Нет        | Ключ подписи webhook, минимум 32 символа                             |
-| `EXPIRATION_NOTIFICATIONS_ENABLED`  | Нет        | Уведомления об истечении подписки (по умолчанию: `false`)            |
-| `EXPIRATION_NOTIFICATIONS`          | Нет        | Часы относительно истечения, по возрастанию (`[-72, -48, -24, 24]`)  |
-| `EXPORT_TO_STREAM_ENABLED`          | Нет        | Экспорт событий панели в Redis Streams (по умолчанию: `false`)       |
-| `EXPORT_TO_STREAM_MAXLEN`           | Нет        | Примерный лимит сообщений в стриме (по умолчанию: `3000`)            |
-| `IS_HTTP_LOGGING_ENABLED`           | Нет        | Включить логирование HTTP-запросов (по умолчанию: `false`)           |
-| `ENABLE_DEBUG_LOGS`                 | Нет        | Включить debug-логирование (по умолчанию: `false`)                   |
+| Ключ                                            | Обязателен | Описание                                                               |
+|-------------------------------------------------|------------|-------------------------------------------------------------------------|
+| `DATABASE_URL`                                  | Да         | Строка подключения PostgreSQL: `postgresql://user:pass@host:5432/db`   |
+| `APP_SECRET`                                    | Да         | Секрет приложения (`openssl rand -hex 64`); `change_me` не принимается |
+| `FRONT_END_DOMAIN`                              | Да         | Публичный URL панели для CORS (например `https://panel.example.com`)   |
+| `SUB_PUBLIC_DOMAIN`                             | Да         | Публичный URL подписок (например `https://sub.example.com/api/sub`)    |
+| `METRICS_USER`                                  | Да         | Логин для basic auth на эндпоинте метрик                               |
+| `METRICS_PASS`                                  | Да         | Пароль для basic auth на эндпоинте метрик                              |
+| `REDIS_SOCKET`                                  | Условно    | Unix-сокет Redis/Valkey. Либо он, либо пара host и port                |
+| `REDIS_HOST`                                    | Условно    | Хост Redis/Valkey, вместе с `REDIS_PORT`                               |
+| `REDIS_PORT`                                    | Условно    | Порт Redis/Valkey, вместе с `REDIS_HOST`                               |
+| `APP_PORT`                                      | Нет        | Порт панели (по умолчанию: `3000`)                                     |
+| `METRICS_PORT`                                  | Нет        | Порт метрик (по умолчанию: `3001`)                                     |
+| `API_INSTANCES`                                 | Нет        | Количество API-воркеров (по умолчанию: `1`)                            |
+| `REDIS_USERNAME`                                | Нет        | Имя пользователя Redis ACL                                             |
+| `REDIS_PASSWORD`                                | Нет        | Пароль Redis                                                           |
+| `REDIS_DB`                                      | Нет        | Номер базы Redis, 0-15 (по умолчанию: `1`)                             |
+| `JWT_AUTH_LIFETIME`                             | Нет        | Время жизни auth-токена в часах, 12-168 (по умолчанию: `12`)           |
+| `PANEL_DOMAIN`                                  | Нет        | Домен панели для генерации ссылок                                      |
+| `SHORT_UUID_METHOD`                             | Нет        | Генератор идентификаторов подписки: `nanoid`, `uuid`, `custom` (с 3.4.0) |
+| `SHORT_UUID_LENGTH`                             | Нет        | Длина для метода `nanoid`, 16-64 (по умолчанию: `16`)                  |
+| `SHORT_UUID_CUSTOM_PATTERN`                     | Нет        | Шаблон для `SHORT_UUID_METHOD=custom`, например `{hex:16}-{digits:10}` |
+| `IS_TELEGRAM_NOTIFICATIONS_ENABLED`             | Нет        | Включить Telegram-уведомления (по умолчанию: `false`)                  |
+| `TELEGRAM_BOT_TOKEN`                            | Нет        | Токен Telegram-бота; обязателен при включённых уведомлениях            |
+| `TELEGRAM_BOT_API_ROOT`                         | Нет        | Базовый URL Telegram Bot API (по умолчанию: `https://api.telegram.org`) |
+| `TELEGRAM_BOT_PROXY`                            | Нет        | URL прокси для Telegram-бота                                           |
+| `TELEGRAM_NOTIFY_USERS`                         | Нет        | Chat id для событий по пользователям                                   |
+| `TELEGRAM_NOTIFY_NODES`                         | Нет        | Chat id для событий по нодам                                           |
+| `TELEGRAM_NOTIFY_CRM`                           | Нет        | Chat id для событий CRM                                                |
+| `TELEGRAM_NOTIFY_SERVICE`                       | Нет        | Chat id для служебных событий                                          |
+| `TELEGRAM_NOTIFY_TBLOCKER`                      | Нет        | Chat id для событий torrent-blocker                                    |
+| `WEBHOOK_ENABLED`                               | Нет        | Включить webhook-уведомления (по умолчанию: `false`)                   |
+| `WEBHOOK_URL`                                   | Нет        | URL webhook-эндпоинта; обязателен при включённых вебхуках              |
+| `WEBHOOK_SECRET_HEADER`                         | Нет        | Ключ подписи webhook: минимум 32 символа, только буквы и цифры         |
+| `EXPIRATION_NOTIFICATIONS_ENABLED`              | Нет        | Уведомления об истечении подписки (по умолчанию: `false`)              |
+| `EXPIRATION_NOTIFICATIONS`                      | Нет        | Часы относительно истечения, по возрастанию (`[-72, -48, -24, 24]`)    |
+| `BANDWIDTH_USAGE_NOTIFICATIONS_ENABLED`         | Нет        | Уведомления о расходе трафика (по умолчанию: `false`)                  |
+| `BANDWIDTH_USAGE_NOTIFICATIONS_THRESHOLD`       | Нет        | JSON-массив процентов, например `[60, 80]`                             |
+| `NOT_CONNECTED_USERS_NOTIFICATIONS_ENABLED`     | Нет        | Уведомления о неподключавшихся пользователях (по умолчанию: `false`)   |
+| `NOT_CONNECTED_USERS_NOTIFICATIONS_AFTER_HOURS` | Нет        | JSON-массив часов, например `[24, 72]`                                 |
+| `USER_USAGE_IGNORE_BELOW_BYTES`                 | Нет        | Не записывать расход меньше этого размера (по умолчанию: `0`)          |
+| `SERVICE_CLEAN_USAGE_HISTORY`                   | Нет        | Чистить историю расхода (по умолчанию: `false`)                        |
+| `SERVICE_DISABLE_USER_USAGE_RECORDS`            | Нет        | Не писать записи о расходе пользователей (по умолчанию: `false`)       |
+| `SERVICE_DISABLE_SRH_RECORDS`                   | Нет        | Не писать историю запросов подписки (по умолчанию: `false`)            |
+| `EXPORT_TO_STREAM_ENABLED`                      | Нет        | Экспорт событий панели в Redis Streams (по умолчанию: `false`)         |
+| `EXPORT_TO_STREAM_MAXLEN`                       | Нет        | Примерный лимит сообщений в стриме (по умолчанию: `3000`)              |
+| `IS_HTTP_LOGGING_ENABLED`                       | Нет        | Включить логирование HTTP-запросов (по умолчанию: `false`)             |
+| `ENABLE_DEBUG_LOGS`                             | Нет        | Включить debug-логирование (по умолчанию: `false`)                     |
+
+Подключение к Redis задаётся ровно одной из двух форм: либо `REDIS_SOCKET`, либо `REDIS_HOST` вместе с `REDIS_PORT`. Если задать все три, панель не стартует.
 
 Полный список переменных — в [документации Remnawave](https://docs.rw/docs/install/environment-variables).
 
 ### Ключи секрета remnawave-subscription-page
 
-| Ключ                               | Обязателен | Описание                                                           |
-|------------------------------------|------------|--------------------------------------------------------------------|
-| `REMNAWAVE_PANEL_URL`              | Да         | Полный URL панели Remnawave (например `https://panel.example.com`) |
-| `REMNAWAVE_API_TOKEN`              | Да         | API-токен из панели: Settings → API Tokens                         |
-| `APP_PORT`                         | Нет        | Порт сервиса (по умолчанию: `3010`)                                |
-| `CUSTOM_SUB_PREFIX`                | Нет        | Кастомный корневой путь, без ведущего и завершающего слеша         |
-| `TRUST_PROXY`                      | Нет        | Настройка Express `trust proxy` для определения реального IP клиента (по умолчанию: `1`) |
-| `CADDY_AUTH_API_TOKEN`             | Нет        | `X-Api-Key` для запросов к панели за Caddy security / Tiny Auth    |
-| `CLOUDFLARE_ZERO_TRUST_CLIENT_ID`  | Нет        | Client ID для Cloudflare Zero Trust                                |
-| `CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET` | Нет     | Client Secret для Cloudflare Zero Trust                            |
-| `MARZBAN_LEGACY_LINK_ENABLED`      | Нет        | Поддержка Marzban legacy-ссылок (по умолчанию: `false`)            |
-| `MARZBAN_LEGACY_SECRET_KEY`        | Нет        | Секрет для Marzban legacy-ссылок                                   |
-| `SUBSCRIPTION_UI_DISPLAY_RAW_KEYS` | Нет        | Показывать сырые `vless://`-ссылки (по умолчанию: `false`)         |
+| Ключ                                        | Обязателен | Описание                                                           |
+|---------------------------------------------|------------|--------------------------------------------------------------------|
+| `REMNAWAVE_PANEL_URL`                       | Да         | Полный URL панели; должен начинаться с `http://` или `https://`    |
+| `REMNAWAVE_API_TOKEN`                       | Да         | API-токен из панели: Settings → API Tokens                         |
+| `APP_PORT`                                  | Нет        | Порт сервиса (по умолчанию: `3010`)                                |
+| `CUSTOM_SUB_PREFIX`                         | Нет        | Кастомный корневой путь, без ведущего и завершающего слеша         |
+| `SUBPAGE_CONFIG_UUID`                       | Нет        | Конфигурация страницы подписки из панели (по умолчанию: нулевой UUID) |
+| `TRUST_PROXY`                               | Нет        | Настройка Express `trust proxy` для определения реального IP клиента (по умолчанию: `1`) |
+| `CADDY_AUTH_API_TOKEN`                      | Нет        | `X-Api-Key` для запросов к панели за Caddy security / Tiny Auth    |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_ID`           | Нет        | Client ID для Cloudflare Zero Trust                                |
+| `CLOUDFLARE_ZERO_TRUST_CLIENT_SECRET`       | Нет        | Client Secret для Cloudflare Zero Trust                            |
+| `MARZBAN_LEGACY_LINK_ENABLED`               | Нет        | Поддержка Marzban legacy-ссылок (по умолчанию: `false`)            |
+| `MARZBAN_LEGACY_SECRET_KEY`                 | Нет        | Секрет для Marzban legacy-ссылок; обязателен при включённых legacy-ссылках |
+| `MARZBAN_LEGACY_SUBSCRIPTION_VALID_FROM`    | Нет        | Отсечка по времени, например `2025-01-17T15:38:45.065Z`            |
+| `MARZBAN_LEGACY_DROP_REVOKED_SUBSCRIPTIONS` | Нет        | Отклонять отозванные legacy-ссылки (по умолчанию: `false`)         |
+| `EGAMES_COOKIE`                             | Нет        | Значение cookie для интеграции eGames                              |
+
+Не кладите в этот Secret `INTERNAL_JWT_SECRET`: энтрипойнт образа генерирует его при каждом старте — поэтому же чарт никогда не переопределяет команду контейнера.
 
 ## Использование с FluxCD и SOPS
 
@@ -294,7 +312,7 @@ spec:
   chart:
     spec:
       chart: remnawave-panel
-      version: "0.1.0"
+      version: "0.4.0"
       sourceRef:
         kind: HelmRepository
         name: remnawave-helm
@@ -328,7 +346,7 @@ spec:
   chart:
     spec:
       chart: remnawave-subscription-page
-      version: "0.1.0"
+      version: "0.4.0"
       sourceRef:
         kind: HelmRepository
         name: remnawave-helm
