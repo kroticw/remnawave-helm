@@ -2,13 +2,20 @@ replicaCount: 1
 
 image:
   repository: remnawave/backend
-  tag: "3.2.1"
+  tag: "3.4.4"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 
 nameOverride: ""
 fullnameOverride: ""
+
+# The container entrypoint runs `prisma migrate deploy` and `prisma db seed` before
+# starting the app, so every rollout mutates the shared database schema. Recreate
+# guarantees the old revision is gone before the new one migrates; with RollingUpdate
+# the previous panel would keep serving traffic against an already-migrated schema.
+strategy:
+  type: Recreate
 
 serviceAccount:
   create: true
@@ -24,35 +31,64 @@ podSecurityContext:
 securityContext: {}
 
 # Name of an existing Secret containing all required environment variables.
+# Variables below are validated by the panel on startup (zod schema); an invalid
+# or missing required value aborts the container.
+#
 # The secret must contain the following keys:
 #   Required:
 #     DATABASE_URL          - PostgreSQL connection string
-#     REDIS_HOST            - Redis/KeyDB hostname
-#     REDIS_PORT            - Redis/KeyDB port (default: 6379)
-#     REDIS_DB              - Redis/KeyDB database number (default: 0)
 #     APP_SECRET            - Application secret (use: openssl rand -hex 64).
 #                             Replaces JWT_AUTH_SECRET and JWT_API_TOKENS_SECRET,
-#                             which were removed in panel 3.0.0
+#                             which were removed in panel 3.0.0.
+#                             The literal value "change_me" is rejected
 #     FRONT_END_DOMAIN      - Panel public URL (e.g. https://panel.example.com)
 #     SUB_PUBLIC_DOMAIN     - Subscription public URL (e.g. https://sub.example.com/api/sub)
 #     METRICS_USER          - Prometheus metrics basic auth username
 #     METRICS_PASS          - Prometheus metrics basic auth password
+#
+#   Redis/Valkey connection - exactly one of the two forms, never both:
+#     REDIS_SOCKET          - Unix socket path, or
+#     REDIS_HOST + REDIS_PORT - TCP host and port
+#
 #   Optional:
 #     APP_PORT              - Panel port (default: 3000)
 #     METRICS_PORT          - Metrics port (default: 3001)
 #     API_INSTANCES         - Number of API workers (default: 1)
+#     REDIS_USERNAME        - Redis ACL username
 #     REDIS_PASSWORD        - Redis password
-#     REDIS_SOCKET          - Redis Unix socket path
-#     JWT_AUTH_LIFETIME     - Auth token lifetime in hours (default: 12)
+#     REDIS_DB              - Redis database index, 0-15 (default: 1)
+#     JWT_AUTH_LIFETIME     - Auth token lifetime in hours, 12-168 (default: 12)
 #     PANEL_DOMAIN          - Panel domain for link generation
+#     SHORT_UUID_METHOD     - Subscription link id generator: nanoid, uuid or custom
+#                             (default: nanoid). Added in panel 3.4.0
+#     SHORT_UUID_LENGTH     - Length for the nanoid method, 16-64 (default: 16)
+#     SHORT_UUID_CUSTOM_PATTERN - Pattern for SHORT_UUID_METHOD=custom, e.g.
+#                             {hex:16}-{hex:16}-{digits:10}. Required for that method
 #     IS_TELEGRAM_NOTIFICATIONS_ENABLED - Enable Telegram notifications (default: false)
-#     TELEGRAM_BOT_TOKEN    - Telegram bot token
+#     TELEGRAM_BOT_TOKEN    - Telegram bot token, required when notifications are on
+#     TELEGRAM_BOT_API_ROOT - Telegram Bot API base URL (default: https://api.telegram.org)
+#     TELEGRAM_BOT_PROXY    - Proxy URL for the Telegram bot
+#     TELEGRAM_NOTIFY_USERS - Chat id (optionally chatId:threadId) for user events
+#     TELEGRAM_NOTIFY_NODES - Chat id for node events
+#     TELEGRAM_NOTIFY_CRM   - Chat id for CRM events
+#     TELEGRAM_NOTIFY_SERVICE - Chat id for service events
+#     TELEGRAM_NOTIFY_TBLOCKER - Chat id for torrent-blocker events
 #     WEBHOOK_ENABLED       - Enable webhooks (default: false)
-#     WEBHOOK_URL           - Webhook endpoint URL
-#     WEBHOOK_SECRET_HEADER - Webhook signature key (min 32 chars)
+#     WEBHOOK_URL           - Webhook endpoint URL, comma-separated for several.
+#                             Required when WEBHOOK_ENABLED is true
+#     WEBHOOK_SECRET_HEADER - Webhook signature key: min 32 chars, letters and
+#                             digits only. Required when WEBHOOK_ENABLED is true
 #     EXPIRATION_NOTIFICATIONS_ENABLED - Enable expiration notifications (default: false)
 #     EXPIRATION_NOTIFICATIONS - Hours relative to user expiration, ASC order
 #                             (negative = before, positive = after), e.g. [-72, -48, -24, 24]
+#     BANDWIDTH_USAGE_NOTIFICATIONS_ENABLED - Notify on traffic usage thresholds (default: false)
+#     BANDWIDTH_USAGE_NOTIFICATIONS_THRESHOLD - JSON array of percentages, e.g. [60, 80]
+#     NOT_CONNECTED_USERS_NOTIFICATIONS_ENABLED - Notify about idle users (default: false)
+#     NOT_CONNECTED_USERS_NOTIFICATIONS_AFTER_HOURS - JSON array of hours, e.g. [24, 72]
+#     USER_USAGE_IGNORE_BELOW_BYTES - Drop usage records below this size (default: 0)
+#     SERVICE_CLEAN_USAGE_HISTORY - Prune usage history (default: false)
+#     SERVICE_DISABLE_USER_USAGE_RECORDS - Stop writing user usage records (default: false)
+#     SERVICE_DISABLE_SRH_RECORDS - Stop writing subscription request history (default: false)
 #     EXPORT_TO_STREAM_ENABLED - Export panel events to Redis Streams (default: false)
 #     EXPORT_TO_STREAM_MAXLEN  - Approximate max messages kept per stream (default: 3000)
 #     IS_HTTP_LOGGING_ENABLED - Enable HTTP request logging (default: false)
@@ -83,17 +119,30 @@ httproute:
       namespace: envoy-gateway-system
   hostname: ""
 
+# Database migrations run before the app listens, so a cold start after a major
+# upgrade can take minutes. The startup probe covers that window instead of
+# letting the liveness probe kill the pod mid-migration.
+# Budget: failureThreshold * periodSeconds = 5 minutes.
+startupProbe:
+  tcpSocket:
+    port: http
+  periodSeconds: 10
+  failureThreshold: 30
+
+# Liveness intentionally stays on tcpSocket: /api/health also pings Postgres, and
+# a database blip must not restart a healthy panel.
 livenessProbe:
   tcpSocket:
     port: http
-  initialDelaySeconds: 30
   periodSeconds: 30
   failureThreshold: 3
 
+# Readiness uses /api/health, which verifies the Postgres connection. The endpoint
+# is unauthenticated and lives under the panel's global /api prefix.
 readinessProbe:
-  tcpSocket:
+  httpGet:
+    path: /api/health
     port: http
-  initialDelaySeconds: 15
   periodSeconds: 10
   failureThreshold: 3
 
