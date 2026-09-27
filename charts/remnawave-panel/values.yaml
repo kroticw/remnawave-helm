@@ -129,19 +129,25 @@ startupProbe:
   periodSeconds: 10
   failureThreshold: 30
 
-# Liveness intentionally stays on tcpSocket: /api/health also pings Postgres, and
-# a database blip must not restart a healthy panel.
 livenessProbe:
   tcpSocket:
     port: http
   periodSeconds: 30
   failureThreshold: 3
 
-# Readiness uses /api/health, which verifies the Postgres connection. The endpoint
-# is unauthenticated and lives under the panel's global /api prefix.
+# All probes use tcpSocket. An HTTP probe cannot reach the panel: panel 3.4.4
+# serves no /api/health route, and its ProxyCheckMiddleware closes every request
+# that does not arrive through a reverse proxy over HTTPS, so kubelet would only
+# ever see EOF and the pod would never become ready.
+#
+# Helm merges these maps with your values instead of replacing them. To switch a
+# probe to another handler, null out the default one in the same override,
+# otherwise the pod spec gets two handlers and the API server rejects it:
+#   readinessProbe:
+#     tcpSocket: null
+#     httpGet: {...}
 readinessProbe:
-  httpGet:
-    path: /api/health
+  tcpSocket:
     port: http
   periodSeconds: 10
   failureThreshold: 3
