@@ -140,7 +140,7 @@ helm install remnawave-panel charts/remnawave-panel \
 | `httproute.hostname`      | Имя хоста для HTTPRoute                                    | `""`                |
 | `startupProbe`            | Startup-проба; закладывает 5 минут на миграции             | см. values.yaml     |
 | `livenessProbe`           | Liveness-проба (`tcpSocket`)                               | см. values.yaml     |
-| `readinessProbe`          | Readiness-проба (`httpGet /api/health`)                    | см. values.yaml     |
+| `readinessProbe`          | Readiness-проба (`tcpSocket`)                              | см. values.yaml     |
 | `serviceMonitor.enabled`  | Включить ServiceMonitor для сбора метрик                   | `false`             |
 | `serviceMonitor.interval` | Интервал сбора метрик                                      | `30s`               |
 | `serviceMonitor.labels`   | Дополнительные метки ServiceMonitor                        | `{}`                |

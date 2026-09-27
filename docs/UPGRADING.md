@@ -8,6 +8,7 @@ This page covers upgrading an installation that already serves users. For a fres
 
 | Chart version | `remnawave-panel` appVersion | `remnawave-subscription-page` appVersion |
 | ------------- | ---------------------------- | ---------------------------------------- |
+| `0.5.1`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.5.0`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.4.0`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.3.0`       | `3.2.1`                      | `8.0.0`                                  |
@@ -70,7 +71,34 @@ No breaking changes in the panel itself: `3.2.2` through `3.4.4` add features an
 What did change is the chart, and two of those changes are worth knowing about before you upgrade:
 
 - the panel deployment switched from the default rolling update to `Recreate`, so the upgrade now has a short downtime window instead of overlapping pods;
-- the readiness probe moved from `tcpSocket` to an HTTP check against `/api/health`, which pings Postgres. If you override `readinessProbe` in your values, replace the whole block rather than merging into it — Kubernetes rejects a probe that declares both `httpGet` and `tcpSocket`.
+- charts `0.4.0` and `0.5.0` moved the readiness probe to an HTTP check against `/api/health`. That probe never passes: panel `3.4.4` serves no such route, and its proxy check closes every request that does not come through a reverse proxy over HTTPS. Skip both versions and upgrade straight to `0.5.1`, which puts the probe back on `tcpSocket` — see the next section.
+
+## Upgrading to chart 0.5.1
+
+No image changes. `0.5.1` fixes the panel readiness probe: it is back on `tcpSocket`, like the startup and liveness probes. With `0.4.0` and `0.5.0` the panel pod starts, runs its migrations and then never becomes ready, because the HTTP probe against `/api/health` always ends in EOF — panel `3.4.4` has no such route, and its `ProxyCheckMiddleware` logs `Reverse proxy and HTTPS are required.` and closes every direct request.
+
+If you override probes in your values, keep in mind that Helm merges your block into the chart's one instead of replacing it. To use another handler, null out the default one in the same override, otherwise the pod spec carries two handlers and the API server rejects it:
+
+```yaml
+readinessProbe:
+  tcpSocket: null
+  httpGet:
+    path: /your/path
+    port: http
+```
+
+### Recovering a release stuck on 0.4.0 or 0.5.0
+
+If an upgrade to `0.4.0` or `0.5.0` failed because the pod never became ready, upgrading to `0.5.1` fails too, with `readinessProbe.tcpSocket: Forbidden: may not specify more than 1 handler type`. Helm computes its patch from the last *successful* release, which already had `tcpSocket`, so the patch never removes the `httpGet` that the failed release left on the live Deployment. Replace the live probe first, then upgrade:
+
+```bash
+kubectl patch deployment remnawave-panel \
+  --namespace remnawave \
+  --type json \
+  --patch '[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe","value":{"tcpSocket":{"port":"http"},"periodSeconds":10,"failureThreshold":3}}]'
+```
+
+The migrations of the failed upgrade have already been applied by then, so do not roll back to `0.3.x` without restoring the database dump — see [Rollback](#rollback).
 
 ## Upgrading from chart 0.4.x
 
@@ -106,14 +134,14 @@ It narrows the problem rather than closing it: a request for a well-formed but n
 ```bash
 helm upgrade remnawave-panel oci://ghcr.io/kroticw/remnawave-helm/remnawave-panel \
   --namespace remnawave \
-  --version 0.4.0 \
+  --version 0.5.1 \
   --reuse-values
 
 kubectl rollout status deployment/remnawave-panel --namespace remnawave
 
 helm upgrade remnawave-subscription-page oci://ghcr.io/kroticw/remnawave-helm/remnawave-subscription-page \
   --namespace remnawave \
-  --version 0.4.0 \
+  --version 0.5.1 \
   --reuse-values
 ```
 

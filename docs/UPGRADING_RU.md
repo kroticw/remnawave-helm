@@ -8,6 +8,7 @@
 
 | Версия чарта | appVersion `remnawave-panel` | appVersion `remnawave-subscription-page` |
 | ------------ | ---------------------------- | ---------------------------------------- |
+| `0.5.1`      | `3.4.4`                      | `8.0.0`                                  |
 | `0.5.0`      | `3.4.4`                      | `8.0.0`                                  |
 | `0.4.0`      | `3.4.4`                      | `8.0.0`                                  |
 | `0.3.0`      | `3.2.1`                      | `8.0.0`                                  |
@@ -70,7 +71,34 @@ kubectl patch secret panel-secret \
 Что действительно изменилось — это чарт, и о двух изменениях стоит знать до обновления:
 
 - деплоймент панели перешёл с обычного rolling update на `Recreate`, поэтому теперь у обновления есть короткое окно недоступности вместо пересечения подов;
-- readiness-проба переехала с `tcpSocket` на HTTP-запрос к `/api/health`, который пингует Postgres. Если вы переопределяете `readinessProbe` в своих values, заменяйте блок целиком, а не дописывайте в него — Kubernetes не примет пробу, в которой одновременно объявлены `httpGet` и `tcpSocket`.
+- чарты `0.4.0` и `0.5.0` перевели readiness-пробу на HTTP-запрос к `/api/health`. Такая проба не проходит никогда: в панели `3.4.4` этого адреса нет, а её проверка прокси обрывает любой запрос, пришедший не через обратный прокси по HTTPS. Пропустите обе версии и обновляйтесь сразу до `0.5.1`, где проба снова на `tcpSocket` — см. следующий раздел.
+
+## Обновление до чарта 0.5.1
+
+Образы не меняются. `0.5.1` чинит readiness-пробу панели: она снова на `tcpSocket`, как startup- и liveness-пробы. С `0.4.0` и `0.5.0` под панели стартует, прогоняет миграции и так и не становится готовым: HTTP-проба к `/api/health` всегда заканчивается EOF — в панели `3.4.4` такого адреса нет, а её `ProxyCheckMiddleware` пишет в лог `Reverse proxy and HTTPS are required.` и обрывает каждый прямой запрос.
+
+Если вы переопределяете пробы в своих values, учтите: Helm не заменяет чартовый блок вашим, а сливает их. Чтобы сменить вид пробы, обнулите чартовый в том же переопределении, иначе в спецификации пода окажутся два обработчика и API-сервер её отвергнет:
+
+```yaml
+readinessProbe:
+  tcpSocket: null
+  httpGet:
+    path: /your/path
+    port: http
+```
+
+### Выход из релиза, застрявшего на 0.4.0 или 0.5.0
+
+Если обновление до `0.4.0` или `0.5.0` упало, потому что под так и не стал готовым, обновление до `0.5.1` тоже упадёт — с ошибкой `readinessProbe.tcpSocket: Forbidden: may not specify more than 1 handler type`. Helm строит патч от последнего *успешного* релиза, где уже был `tcpSocket`, поэтому патч не убирает `httpGet`, оставленный упавшим релизом на живом Deployment. Сначала замените пробу на живом объекте, потом обновляйтесь:
+
+```bash
+kubectl patch deployment remnawave-panel \
+  --namespace remnawave \
+  --type json \
+  --patch '[{"op":"replace","path":"/spec/template/spec/containers/0/readinessProbe","value":{"tcpSocket":{"port":"http"},"periodSeconds":10,"failureThreshold":3}}]'
+```
+
+Миграции упавшего обновления к этому моменту уже применены, поэтому не откатывайтесь на `0.3.x` без восстановления дампа базы — см. [Откат](#откат).
 
 ## Обновление с чарта 0.4.x
 
@@ -106,14 +134,14 @@ pathFilter:
 ```bash
 helm upgrade remnawave-panel oci://ghcr.io/kroticw/remnawave-helm/remnawave-panel \
   --namespace remnawave \
-  --version 0.4.0 \
+  --version 0.5.1 \
   --reuse-values
 
 kubectl rollout status deployment/remnawave-panel --namespace remnawave
 
 helm upgrade remnawave-subscription-page oci://ghcr.io/kroticw/remnawave-helm/remnawave-subscription-page \
   --namespace remnawave \
-  --version 0.4.0 \
+  --version 0.5.1 \
   --reuse-values
 ```
 
