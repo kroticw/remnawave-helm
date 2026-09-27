@@ -8,6 +8,7 @@ This page covers upgrading an installation that already serves users. For a fres
 
 | Chart version | `remnawave-panel` appVersion | `remnawave-subscription-page` appVersion |
 | ------------- | ---------------------------- | ---------------------------------------- |
+| `0.5.0`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.4.0`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.3.0`       | `3.2.1`                      | `8.0.0`                                  |
 | `0.2.0`       | `2.7.4`                      | `7.2.1`                                  |
@@ -70,6 +71,23 @@ What did change is the chart, and two of those changes are worth knowing about b
 
 - the panel deployment switched from the default rolling update to `Recreate`, so the upgrade now has a short downtime window instead of overlapping pods;
 - the readiness probe moved from `tcpSocket` to an HTTP check against `/api/health`, which pings Postgres. If you override `readinessProbe` in your values, replace the whole block rather than merging into it — Kubernetes rejects a probe that declares both `httpGet` and `tcpSocket`.
+
+## Upgrading from chart 0.4.x
+
+No image changes. `0.5.0` only adds `pathFilter` to `remnawave-subscription-page`, and it is disabled by default, so an upgrade changes nothing until you turn it on.
+
+Turn it on if scanner traffic against your subscription host shows up as 5xx on your ingress. The application destroys the TCP connection for every request that does not resolve to an existing subscription — it never answers 404 — and a proxy in front reports that as 502. Internet background scanning for `/.env`, `/.git/config` or `/docs/phpinfo.php` therefore reads as a burst of server errors coming from your own ingress.
+
+```yaml
+pathFilter:
+  enabled: true
+```
+
+With it on, only `/assets/…`, `/<shortUuid>` and `/<shortUuid>/<clientType>` are routed to the pods and everything else gets a 404 from the proxy. Both routing modes are covered: the Ingress switches to regex paths with `nginx.ingress.kubernetes.io/use-regex`, and the HTTPRoute switches to `RegularExpression` matches.
+
+Check the pattern against your own setup before enabling it. The default assumes stock subscription links; `CUSTOM_SUB_PREFIX`, a custom `SHORT_UUID_METHOD` or `SHORT_UUID_CUSTOM_PATTERN` on the panel, or Marzban legacy links all produce a different link shape, and a filter that does not know about them will return 404 to real users. Adjust `pathFilter.shortUuidPattern` and `pathFilter.clientTypes` to match.
+
+It narrows the problem rather than closing it: a request for a well-formed but non-existent subscription id still reaches the application and still ends as a 502. Only the application can fix that, by answering 404 instead of destroying the connection.
 
 ## What changed in subscription page 8.0.0
 

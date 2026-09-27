@@ -62,6 +62,42 @@ service:
   type: ClusterIP
   port: 3010
 
+# Reject scanner traffic at the proxy instead of letting it reach the application.
+#
+# The application answers no request that does not resolve to an existing
+# subscription: it destroys the TCP connection instead of returning 404. A proxy
+# in front sees a closed connection and reports 502 to the client, so internet
+# background scanning for /.env, /.git/config or /docs/phpinfo.php shows up as a
+# burst of 5xx on your own ingress and wakes up whoever watches for them.
+#
+# When enabled, only the paths the application actually serves are routed to it
+# and everything else gets a 404 from the proxy without reaching a pod.
+#
+# Disabled by default: turning it on changes which requests reach the
+# application, and the default pattern assumes stock subscription links. Review
+# it against your own setup first — in particular if you set CUSTOM_SUB_PREFIX,
+# a custom SHORT_UUID_METHOD or SHORT_UUID_CUSTOM_PATTERN on the panel, or if
+# Marzban legacy links are in use, because those links have a different shape.
+#
+# This narrows the blast radius, it does not close it: a request for a
+# well-formed but non-existent subscription id still reaches the application and
+# still ends as a 502. Only the application can fix that properly, by answering
+# 404 instead of destroying the connection.
+pathFilter:
+  enabled: false
+  # Regular expression matching one subscription short id, without slashes.
+  # The default covers the panel's nanoid alphabet at any supported length and
+  # also matches a plain UUID.
+  shortUuidPattern: "[0-9A-Za-z_-]{16,64}"
+  # Client types the application accepts as the second path segment.
+  clientTypes:
+    - stash
+    - singbox
+    - mihomo
+    - json
+    - v2ray-json
+    - clash
+
 # Classic Kubernetes Ingress
 ingress:
   enabled: false

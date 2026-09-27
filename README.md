@@ -25,7 +25,7 @@ The charts are independent and can be deployed in any combination: both in the s
 
 Upgrading an installation that already serves users is described in [docs/UPGRADING.md](./docs/UPGRADING.md): what each version needs from the Secret, how database migrations run, the order of operations and how to roll back.
 
-Chart `0.4.0` moves the panel from `3.2.1` to `3.4.4`. The subscription page stays on `8.0.0`.
+Chart `0.5.0` adds `pathFilter` to `remnawave-subscription-page`, disabled by default. Images are unchanged: panel `3.4.4`, subscription page `8.0.0`.
 
 ## Installing the charts
 
@@ -198,10 +198,30 @@ volumeMounts:
 | `httproute.enabled`     | Enable Gateway API HTTPRoute                        | `false`                       |
 | `httproute.parentRefs`  | Gateway parentRefs                                  | see values.yaml               |
 | `httproute.hostname`    | Hostname for HTTPRoute                              | `""`                          |
+| `pathFilter.enabled`    | Route only application paths, 404 everything else   | `false`                       |
+| `pathFilter.shortUuidPattern` | Regex for one subscription short id           | `[0-9A-Za-z_-]{16,64}`        |
+| `pathFilter.clientTypes` | Client types accepted as second path segment       | see values.yaml               |
 | `resources`             | CPU/memory requests and limits                      | see values.yaml               |
 | `nodeSelector`          | Node selector                                       | `{}`                          |
 | `tolerations`           | Tolerations                                         | `[]`                          |
 | `affinity`              | Affinity rules                                      | `{}`                          |
+
+### Keeping scanner traffic off the subscription page
+
+The subscription page never answers 404. For any request that does not resolve to an existing subscription it destroys the TCP connection, so a proxy in front reports 502 to the client. Internet background scanning for `/.env`, `/.git/config` or `/docs/phpinfo.php` therefore turns into a burst of server errors on your own ingress, which is enough to trip a generic "too many 5xx" alert.
+
+`pathFilter` routes only the paths the application actually serves and lets the proxy answer 404 for the rest:
+
+```yaml
+pathFilter:
+  enabled: true
+```
+
+It works for both routing modes — the Ingress switches to regex paths with `nginx.ingress.kubernetes.io/use-regex`, the HTTPRoute to `RegularExpression` matches — and it is off by default because enabling it changes which requests reach the application.
+
+The default pattern assumes stock subscription links. If you set `CUSTOM_SUB_PREFIX`, a custom `SHORT_UUID_METHOD` or `SHORT_UUID_CUSTOM_PATTERN` on the panel, or use Marzban legacy links, adjust `pathFilter.shortUuidPattern` and `pathFilter.clientTypes` to match, or real users will get 404.
+
+This narrows the problem, it does not close it: a well-formed but non-existent subscription id still reaches the application and still ends as 502. See [docs/UPGRADING.md](./docs/UPGRADING.md).
 
 ## Secret keys reference
 
