@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: remnawave/backend
-  tag: "3.4.4"
+  tag: "3.4.10"
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -135,7 +135,7 @@ livenessProbe:
   periodSeconds: 30
   failureThreshold: 3
 
-# All probes use tcpSocket. An HTTP probe cannot reach the panel: panel 3.4.4
+# All probes use tcpSocket. An HTTP probe cannot reach the panel: panel 3.4.x
 # serves no /api/health route, and its ProxyCheckMiddleware closes every request
 # that does not arrive through a reverse proxy over HTTPS, so kubelet would only
 # ever see EOF and the pod would never become ready.
@@ -152,13 +152,15 @@ readinessProbe:
   periodSeconds: 10
   failureThreshold: 3
 
+# An idle panel 3.4.x with API_INSTANCES=1 (work, rest and cron processes) holds
+# about 530Mi, so a 512Mi limit gets it OOM-killed right after start.
 resources:
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 512Mi
   limits:
     cpu: 1000m
-    memory: 512Mi
+    memory: 1Gi
 
 nodeSelector: {}
 

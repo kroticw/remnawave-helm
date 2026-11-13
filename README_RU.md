@@ -8,8 +8,8 @@ Helm-чарты для развёртывания компонентов VPN-п�
 
 | Чарт                                                                  | Описание                           | Образ по умолчанию                   |
 |-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
-| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:3.4.4`            |
-| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок             | `remnawave/subscription-page:8.0.0`  |
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Бэкенд + фронтенд панели Remnawave | `remnawave/backend:3.4.10`           |
+| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Лёгкий портал подписок             | `remnawave/subscription-page:8.0.1`  |
 
 Чарты независимы и могут быть развёрнуты в любой комбинации: оба в одном неймспейсе, в разных неймспейсах одного кластера или в полностью отдельных кластерах. Страница подписок обращается к панели по HTTPS с использованием API-токена.
 
@@ -25,7 +25,7 @@ Helm-чарты для развёртывания компонентов VPN-п�
 
 Обновление установки, которая уже обслуживает пользователей, описано в [docs/UPGRADING_RU.md](./docs/UPGRADING_RU.md): что каждая версия требует от Secret, как идут миграции базы, в каком порядке обновлять и как откатываться.
 
-Чарт `0.5.0` добавляет `pathFilter` у `remnawave-subscription-page`, по умолчанию выключенный. Образы не меняются: панель `3.4.4`, страница подписок `8.0.0`.
+Чарт `0.6.0` переходит на панель `3.4.10` и страницу подписок `8.0.1` и поднимает память панели по умолчанию: запрос `512Mi`, лимит `1Gi`.
 
 ## Установка
 
@@ -123,7 +123,7 @@ helm install remnawave-panel charts/remnawave-panel \
 |---------------------------|------------------------------------------------------------|---------------------|
 | `replicaCount`            | Количество реплик                                          | `1`                 |
 | `image.repository`        | Репозиторий образа                                         | `remnawave/backend` |
-| `image.tag`               | Тег образа                                                 | `3.4.4`             |
+| `image.tag`               | Тег образа                                                 | `3.4.10`            |
 | `image.pullPolicy`        | Политика загрузки образа                                   | `IfNotPresent`      |
 | `strategy`                | Стратегия деплоймента; `Recreate`, потому что энтрипойнт мигрирует базу | `{type: Recreate}` |
 | `existingSecret`          | **Обязателен.** Имя существующего Secret с env-переменными | `""`                |
@@ -185,7 +185,7 @@ volumeMounts:
 |-------------------------|------------------------------------------------------------|-------------------------------|
 | `replicaCount`          | Количество реплик                                          | `1`                           |
 | `image.repository`      | Репозиторий образа                                         | `remnawave/subscription-page` |
-| `image.tag`             | Тег образа                                                 | `8.0.0`                       |
+| `image.tag`             | Тег образа                                                 | `8.0.1`                       |
 | `image.pullPolicy`      | Политика загрузки образа                                   | `IfNotPresent`                |
 | `existingSecret`        | **Обязателен.** Имя существующего Secret с env-переменными | `""`                          |
 | `service.port`          | HTTP-порт                                                  | `3010`                        |
@@ -347,10 +347,10 @@ spec:
     resources:
       requests:
         cpu: 100m
-        memory: 256Mi
+        memory: 512Mi
       limits:
         cpu: 1000m
-        memory: 512Mi
+        memory: 1Gi
 ```
 
 **remnawave-subscription-page** (пример для production с Ingress):

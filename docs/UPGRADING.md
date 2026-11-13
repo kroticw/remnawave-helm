@@ -8,6 +8,7 @@ This page covers upgrading an installation that already serves users. For a fres
 
 | Chart version | `remnawave-panel` appVersion | `remnawave-subscription-page` appVersion |
 | ------------- | ---------------------------- | ---------------------------------------- |
+| `0.6.0`       | `3.4.10`                     | `8.0.1`                                  |
 | `0.5.1`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.5.0`       | `3.4.4`                      | `8.0.0`                                  |
 | `0.4.0`       | `3.4.4`                      | `8.0.0`                                  |
@@ -73,6 +74,14 @@ What did change is the chart, and two of those changes are worth knowing about b
 - the panel deployment switched from the default rolling update to `Recreate`, so the upgrade now has a short downtime window instead of overlapping pods;
 - charts `0.4.0` and `0.5.0` moved the readiness probe to an HTTP check against `/api/health`. That probe never passes: panel `3.4.4` serves no such route, and its proxy check closes every request that does not come through a reverse proxy over HTTPS. Skip both versions and upgrade straight to `0.5.1`, which puts the probe back on `tcpSocket` — see the next section.
 
+## Upgrading to chart 0.6.0
+
+Panel `3.4.4` → `3.4.10` and subscription page `8.0.0` → `8.0.1`. No breaking changes and no new required environment variables. Panel `3.4.5` adds the optional `SERVICE_SNI_VERIFICATION`, `3.4.9` adds `includeInSrrRules` to hosts. Subscription page `8.0.1` adds the `INCY_CRYPT1_LINK` template variable to the page configs; it is not an environment variable.
+
+The panel memory defaults go up from a `256Mi` request and a `512Mi` limit to `512Mi` and `1Gi`. An idle panel with `API_INSTANCES=1` already holds about 530Mi, so the old limit gets it OOM-killed right after start. If you set `resources` in your own values, raise the limit there.
+
+Upgrade with `--reset-then-reuse-values` (Helm 3.14 or later), not `--reuse-values`. `--reuse-values` takes the chart defaults from the release you are upgrading, so the new image tag and the new memory defaults never reach the cluster: an upgrade from `0.5.1` to `0.6.0` with `--reuse-values` keeps `remnawave/backend:3.4.4`. Flux `HelmRelease` is not affected, it always renders against the defaults of the chart it installs.
+
 ## Upgrading to chart 0.5.1
 
 No image changes. `0.5.1` fixes the panel readiness probe: it is back on `tcpSocket`, like the startup and liveness probes. With `0.4.0` and `0.5.0` the panel pod starts, runs its migrations and then never becomes ready, because the HTTP probe against `/api/health` always ends in EOF — panel `3.4.4` has no such route, and its `ProxyCheckMiddleware` logs `Reverse proxy and HTTPS are required.` and closes every direct request.
@@ -134,15 +143,15 @@ It narrows the problem rather than closing it: a request for a well-formed but n
 ```bash
 helm upgrade remnawave-panel oci://ghcr.io/kroticw/remnawave-helm/remnawave-panel \
   --namespace remnawave \
-  --version 0.5.1 \
-  --reuse-values
+  --version 0.6.0 \
+  --reset-then-reuse-values
 
 kubectl rollout status deployment/remnawave-panel --namespace remnawave
 
 helm upgrade remnawave-subscription-page oci://ghcr.io/kroticw/remnawave-helm/remnawave-subscription-page \
   --namespace remnawave \
-  --version 0.5.1 \
-  --reuse-values
+  --version 0.6.0 \
+  --reset-then-reuse-values
 ```
 
 ## Rollback

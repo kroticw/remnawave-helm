@@ -8,8 +8,8 @@ Helm charts for deploying [Remnawave](https://github.com/remnawave/backend) VPN 
 
 | Chart                                                                 | Description                        | Default Image                        |
 |-----------------------------------------------------------------------|------------------------------------|--------------------------------------|
-| [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:3.4.4`            |
-| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Lightweight subscription portal    | `remnawave/subscription-page:8.0.0`  |
+| [`remnawave-panel`](./charts/remnawave-panel)                         | Remnawave backend + frontend panel | `remnawave/backend:3.4.10`           |
+| [`remnawave-subscription-page`](./charts/remnawave-subscription-page) | Lightweight subscription portal    | `remnawave/subscription-page:8.0.1`  |
 
 The charts are independent and can be deployed in any combination: both in the same namespace, in different namespaces within one cluster, or in entirely separate clusters. The subscription page communicates with the panel over HTTPS using a configured API token.
 
@@ -25,7 +25,7 @@ The charts are independent and can be deployed in any combination: both in the s
 
 Upgrading an installation that already serves users is described in [docs/UPGRADING.md](./docs/UPGRADING.md): what each version needs from the Secret, how database migrations run, the order of operations and how to roll back.
 
-Chart `0.5.0` adds `pathFilter` to `remnawave-subscription-page`, disabled by default. Images are unchanged: panel `3.4.4`, subscription page `8.0.0`.
+Chart `0.6.0` moves to panel `3.4.10` and subscription page `8.0.1` and raises the panel memory defaults to a `512Mi` request and a `1Gi` limit.
 
 ## Installing the charts
 
@@ -123,7 +123,7 @@ helm install remnawave-panel charts/remnawave-panel \
 |---------------------------|-----------------------------------------------------|---------------------|
 | `replicaCount`            | Number of replicas                                  | `1`                 |
 | `image.repository`        | Image repository                                    | `remnawave/backend` |
-| `image.tag`               | Image tag                                           | `3.4.4`             |
+| `image.tag`               | Image tag                                           | `3.4.10`            |
 | `image.pullPolicy`        | Image pull policy                                   | `IfNotPresent`      |
 | `strategy`                | Deployment strategy; `Recreate` because the entrypoint migrates the database | `{type: Recreate}` |
 | `existingSecret`          | **Required.** Name of existing Secret with env vars | `""`                |
@@ -185,7 +185,7 @@ volumeMounts:
 |-------------------------|-----------------------------------------------------|-------------------------------|
 | `replicaCount`          | Number of replicas                                  | `1`                           |
 | `image.repository`      | Image repository                                    | `remnawave/subscription-page` |
-| `image.tag`             | Image tag                                           | `8.0.0`                       |
+| `image.tag`             | Image tag                                           | `8.0.1`                       |
 | `image.pullPolicy`      | Image pull policy                                   | `IfNotPresent`                |
 | `existingSecret`        | **Required.** Name of existing Secret with env vars | `""`                          |
 | `service.port`          | HTTP port                                           | `3010`                        |
@@ -347,10 +347,10 @@ spec:
     resources:
       requests:
         cpu: 100m
-        memory: 256Mi
+        memory: 512Mi
       limits:
         cpu: 1000m
-        memory: 512Mi
+        memory: 1Gi
 ```
 
 **remnawave-subscription-page** (production cluster example with Ingress):
