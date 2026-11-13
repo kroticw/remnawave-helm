@@ -2,8 +2,8 @@ apiVersion: v2
 name: remnawave-panel
 description: Helm chart for Remnawave VPN panel (backend + frontend)
 type: application
-version: 0.5.1
-appVersion: "3.4.4"
+version: 0.6.0
+appVersion: "3.4.10"
 keywords:
   - remnawave
   - vpn

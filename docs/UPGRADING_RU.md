@@ -8,6 +8,7 @@
 
 | Версия чарта | appVersion `remnawave-panel` | appVersion `remnawave-subscription-page` |
 | ------------ | ---------------------------- | ---------------------------------------- |
+| `0.6.0`      | `3.4.10`                     | `8.0.1`                                  |
 | `0.5.1`      | `3.4.4`                      | `8.0.0`                                  |
 | `0.5.0`      | `3.4.4`                      | `8.0.0`                                  |
 | `0.4.0`      | `3.4.4`                      | `8.0.0`                                  |
@@ -73,6 +74,14 @@ kubectl patch secret panel-secret \
 - деплоймент панели перешёл с обычного rolling update на `Recreate`, поэтому теперь у обновления есть короткое окно недоступности вместо пересечения подов;
 - чарты `0.4.0` и `0.5.0` перевели readiness-пробу на HTTP-запрос к `/api/health`. Такая проба не проходит никогда: в панели `3.4.4` этого адреса нет, а её проверка прокси обрывает любой запрос, пришедший не через обратный прокси по HTTPS. Пропустите обе версии и обновляйтесь сразу до `0.5.1`, где проба снова на `tcpSocket` — см. следующий раздел.
 
+## Обновление до чарта 0.6.0
+
+Панель `3.4.4` → `3.4.10`, страница подписок `8.0.0` → `8.0.1`. Ломающих изменений и новых обязательных переменных окружения нет. Панель `3.4.5` добавляет необязательную `SERVICE_SNI_VERIFICATION`, `3.4.9` добавляет хостам `includeInSrrRules`. Страница подписок `8.0.1` добавляет в конфиги страницы переменную шаблона `INCY_CRYPT1_LINK`; это не переменная окружения.
+
+Память панели по умолчанию растёт с запроса `256Mi` и лимита `512Mi` до `512Mi` и `1Gi`. Панель в простое с `API_INSTANCES=1` уже держит около 530Mi, поэтому со старым лимитом её убивает OOM сразу после старта. Если вы задаёте `resources` в своих values, поднимите лимит там.
+
+Обновляйтесь с `--reset-then-reuse-values` (Helm 3.14 и новее), а не с `--reuse-values`. `--reuse-values` берёт значения по умолчанию из чарта обновляемого релиза, поэтому новый тег образа и новые лимиты памяти до кластера не доходят: обновление с `0.5.1` до `0.6.0` с `--reuse-values` оставляет `remnawave/backend:3.4.4`. Flux `HelmRelease` это не касается: он всегда рендерит с умолчаниями того чарта, который ставит.
+
 ## Обновление до чарта 0.5.1
 
 Образы не меняются. `0.5.1` чинит readiness-пробу панели: она снова на `tcpSocket`, как startup- и liveness-пробы. С `0.4.0` и `0.5.0` под панели стартует, прогоняет миграции и так и не становится готовым: HTTP-проба к `/api/health` всегда заканчивается EOF — в панели `3.4.4` такого адреса нет, а её `ProxyCheckMiddleware` пишет в лог `Reverse proxy and HTTPS are required.` и обрывает каждый прямой запрос.
@@ -134,15 +143,15 @@ pathFilter:
 ```bash
 helm upgrade remnawave-panel oci://ghcr.io/kroticw/remnawave-helm/remnawave-panel \
   --namespace remnawave \
-  --version 0.5.1 \
-  --reuse-values
+  --version 0.6.0 \
+  --reset-then-reuse-values
 
 kubectl rollout status deployment/remnawave-panel --namespace remnawave
 
 helm upgrade remnawave-subscription-page oci://ghcr.io/kroticw/remnawave-helm/remnawave-subscription-page \
   --namespace remnawave \
-  --version 0.5.1 \
-  --reuse-values
+  --version 0.6.0 \
+  --reset-then-reuse-values
 ```
 
 ## Откат
